@@ -10,30 +10,52 @@ request_rate = 5
 user_agent = "fri-ieps-nasagrupa"
 
 def put_site_in_db(domain):
-    conn = psycopg2.connect("host=167.71.67.220 dbname=crawler user=crawler password=tojegeslo")
-    conn.autocommit = True
 
-    cur = conn.cursor()
+    try:
+        conn = psycopg2.connect("host=167.71.67.220 dbname=crawler user=crawler password=tojegeslo")
+        conn.autocommit = True
+        cur = conn.cursor()
+        url = "http://{}/robots.txt".format(domain)
+        robots_sitemap_data = get_robots_sitemap_data(url)
+        cur.execute("SELECT domain FROM crawldb.site WHERE domain = %s", (domain,))
+        rows = cur.fetchall()
+        if not rows:
+            cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s)", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
 
-    url = "http://{}/robots.txt"
-    robots_data = get_robots_data(url)
-    cur.execute("""INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES ('%s', '%s', '%s')""", (domain, robots_data[0], robots_data[1]))
+    except Exception as e:
+        print(e)
 
-    cur.close()
-    conn.close()
+    finally:
+        cur.close()
+        conn.close()
 
-def get_robots_data(url):
+def get_robots_sitemap_data(url):
     #TODO: return (sitemap_data, robots_data)
 
     rp = urllib.robotparser.RobotFileParser(url=url)
     rp.read()
-    return ("test_sitemap","test_robots")
-
-
-    #s = rp.site_maps()
-
     # if rp.request_rate() > 5:
     #     request_rate = rp.request_rate(user_agent)
+
+    s = rp.site_maps()
+
+    request = urllib.request.Request(
+        url,
+        headers={'User-Agent': user_agent}
+    )
+
+    with urllib.request.urlopen(request) as response:
+        robots_data = response.read().decode("utf-8")
+
+    request = urllib.request.Request(
+        s,
+        headers={'User-Agent': user_agent}
+    )
+
+    with urllib.request.urlopen(request) as response:
+        sitemap_data = response.read().decode("utf-8")
+
+    return (robots_data, sitemap_data)
 
 lock = threading.Lock()
 
