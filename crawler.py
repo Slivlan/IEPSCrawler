@@ -10,9 +10,6 @@ domains = ["gov.si", "evem.gov.si", "e-uprava.gov.si", "e-prostor.gov.si"]
 request_rate = 5
 user_agent = "fri-ieps-nasagrupa"
 
-chrome_options = webdriver.ChromeOptions()
-chrome_options.add_argument('headless')
-driver = webdriver.Chrome(chrome_options = chrome_options)
 def put_site_in_db(domain):
 
     try:
@@ -64,26 +61,40 @@ def get_robots_sitemap_data(url):
 """
 	Detect images and next links
 """
-def get_images_links(driver, domain):
+def get_images_links(domain):
+	chrome_options = webdriver.ChromeOptions()
+	chrome_options.add_argument('headless')
+	driver = webdriver.Chrome(chrome_options = chrome_options)
 	driver.get(domain)
 	print("Domain: ", domain)
-	#print(driver.page_source)
 	page_content = driver.page_source
-	# Html_file= open("tmp_{}".format(domain),"w")
-	# Html_file.write(page_content)
-	# Html_file.close()
 	images = []
 	links = []
 	page = BeautifulSoup(page_content, 'html.parser')
 	imgs = page.findAll('img')
+	#print("IMGS len: ", len(imgs))
 	for img in imgs:
-		src = img.get_attribute('src')
+		#print("IMG ", img)
+		src = img['src']
+		#print("SRC2: ", src2)
+		if src.startswith('data:image'):
+			#print("OH YES.")
+			continue
 		images.append(src)
 	hyperlinks = page.findAll('a')
+	#print("HYPERLINKS: ", hyperlinks)
+	#print("HYPERLINKS len: ", len(hyperlinks))
 	for hyperlink in hyperlinks:
-		href = hyperlink.get_attribute('href')
+		href = hyperlink['href']
+		#print("HREF: ", href)
 		links.append(href)
-	print("------------")
+	print("IMAGES: ")
+	print(images)
+	print("LINKS: ")
+	print(links)
+	print("-----KONECKONECKONEC-------")
+	
+	driver.close()
 	driver.quit()
 
 lock = threading.Lock()
@@ -92,4 +103,4 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
     print(f"\n ... executing workers ...\n")
     for domain in domains:
         executor.submit(put_site_in_db, domain)
-        executor.submit(get_images_links, driver, 'https://'+domain)
+        executor.submit(get_images_links, 'https://'+domain)
