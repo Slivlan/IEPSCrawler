@@ -5,6 +5,7 @@ import psycopg2
 import threading
 import concurrent.futures
 from bs4 import BeautifulSoup
+import re
 
 domains = ["gov.si", "evem.gov.si", "e-uprava.gov.si", "e-prostor.gov.si"]
 request_rate_sec = 5
@@ -88,9 +89,19 @@ def get_images_links(domain):
 	#print("HYPERLINKS: ", hyperlinks)
 	#print("HYPERLINKS len: ", len(hyperlinks))
 	for hyperlink in hyperlinks:
+		print("HYPERLINK", hyperlink)
 		href = hyperlink['href']
 		#print("HREF: ", href)
 		links.append(href)
+	# Links hidden in scripts
+	scripts = page.findAll('script')
+	for script in scripts:
+		print("SCRIPT: ")
+		print(script.text)
+		links_from_script = re.findall(r'(http://|https://)([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?',
+                               script.text)
+		for link in links_from_script:
+			links.append(link)
 	print("IMAGES: ")
 	print(images)
 	print("LINKS: ")
@@ -102,8 +113,15 @@ def get_images_links(domain):
 
 lock = threading.Lock()
 
-with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
-    print(f"\n ... executing workers ...\n")
-    for domain in domains:
-        executor.submit(put_site_in_db, domain)
-        executor.submit(get_images_links, 'https://'+domain)
+# with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+#     print(f"\n ... executing workers ...\n")
+#     for domain in domains:
+#         executor.submit(put_site_in_db, domain)
+#         executor.submit(get_images_links, 'https://'+domain)
+for domain in domains:
+        #executor.submit(put_site_in_db, domain)
+        #executor.submit(get_images_links, 'https://'+domain)
+        try:
+        	get_images_links('https://'+domain)
+        except Exception as e:
+        	print("ERROR: ", e)
