@@ -26,7 +26,6 @@ cur = conn.cursor()
 #sam das with lock: pred kodo, ki rabi lock
 lock = threading.Lock()
 
-
 def reset_database():
 	cur.execute("DELETE FROM crawldb.site *")
 	cur.execute("DELETE FROM crawldb.page *")
@@ -54,13 +53,26 @@ def increment_next_page_id():
 #print(get_next_page_id())
 #exit()
 
+
+"""
+	Is url allowed to be crawled?
+"""
+def can_crawl(domain, url):
+    try:
+        cur.execute("SELECT domain, robots_content FROM crawldb.site WHERE domain = %s", (domain,))
+        rows = cur.fetchall()
+        rp = urllib.robotparser.RobotFileParser()
+        rp.parse(rows[0][1])
+        return  rp.can_fetch(user_agent, url)
+    except Exception as e:
+        return True
+
 """
 	Store site data in database in table crawldb.site
 """
 def put_site_in_db(domain):
     try:
         robots_sitemap_data = get_robots_sitemap_data(domain)
-
         
         cur.execute("SELECT domain FROM crawldb.site WHERE domain = %s", (domain,))
         rows = cur.fetchall()
@@ -70,10 +82,6 @@ def put_site_in_db(domain):
     except Exception as e:
         print(e)
 
-    finally:
-        cur.close()
-        conn.close()
-
 """
 	Get robots and sitemap data as tuple (robots_data, sitemap_data) if exists
 """
@@ -81,6 +89,10 @@ def get_robots_sitemap_data(domain):
     url = "http://{}/robots.txt".format(domain)
     rp = urllib.robotparser.RobotFileParser(url=url)
     rp.read()
+
+    # crawl_delay_sec_t = rp.crawl_delay(user_agent)
+    # if crawl_delay_sec_t:
+    #     crawl_delay_sec = crawl_delay_sec_t
 
     try:
         request = urllib.request.Request(url, headers={'User-Agent': user_agent})
@@ -155,15 +167,18 @@ def get_images_links(domain):
 
 lock = threading.Lock()
 
-# with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
-#     print(f"\n ... executing workers ...\n")
-#     for domain in domains:
-#         executor.submit(put_site_in_db, domain)
-#         executor.submit(get_images_links, 'https://'+domain)
-for domain in domains:
-        #executor.submit(put_site_in_db, domain)
+with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+    print(f"\n ... executing workers ...\n")
+    reset_database()
+    for domain in domains:
+        executor.submit(put_site_in_db, domain)
+        #put_site_in_db(domain)
+        #can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
         #executor.submit(get_images_links, 'https://'+domain)
-        try:
-        	get_images_links('https://'+domain)
-        except Exception as e:
-        	print("ERROR: ", e)
+# for domain in domains:
+#         #executor.submit(put_site_in_db, domain)
+#         #executor.submit(get_images_links, 'https://'+domain)
+#         try:
+#         	get_images_links('https://'+domain)
+#         except Exception as e:
+#         	print("ERROR: ", e)
