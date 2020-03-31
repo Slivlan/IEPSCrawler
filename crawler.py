@@ -15,14 +15,51 @@ chrome_options = webdriver.ChromeOptions()
 chrome_options.add_argument('headless')
 driver = webdriver.Chrome(chrome_options = chrome_options)
 
+conn = psycopg2.connect("host=167.71.67.220 dbname=crawler user=crawler password=tojegeslo")
+conn.autocommit = True
+'''
+Cursors are not thread safe: a multithread application can create many cursors from the same connection and should use each cursor from a single thread. See Thread and process safety for details.
+'''
+cur = conn.cursor()
+
+#lock za multithreading se more nucat vedno kadar se karkoli pošilja na bazo al pa bere iz baze
+#sam das with lock: pred kodo, ki rabi lock
+lock = threading.Lock()
+
+
+def reset_database():
+	cur.execute("DELETE FROM crawldb.site *")
+	cur.execute("DELETE FROM crawldb.page *")
+	cur.execute("DELETE FROM crawldb.image *")
+	cur.execute("DELETE FROM crawldb.page_data *")
+	cur.execute("DELETE FROM crawldb.data_type *")
+	cur.execute("DELETE FROM crawldb.page_type *")
+	cur.execute("DELETE FROM crawldb.link *")
+	cur.execute("DELETE FROM Frontier *")
+	cur.execute("INSERT INTO Frontier (next_page_id) VALUES (1)")
+
+def get_next_page_id():
+	with lock:
+		cur.execute("SELECT next_page_id FROM Frontier")
+		rows = cur.fetchone()
+		return rows[0]
+
+def increment_next_page_id():
+	with lock:
+		cur.execute("UPDATE Frontier SET next_page_id = next_page_id + 1")
+
+#test
+#print(get_next_page_id())
+#increment_next_page_id()
+#print(get_next_page_id())
+#exit()
+
 def put_site_in_db(domain):
 
     try:
         robots_sitemap_data = get_robots_sitemap_data(domain)
 
-        conn = psycopg2.connect("host=167.71.67.220 dbname=crawler user=crawler password=tojegeslo")
-        conn.autocommit = True
-        cur = conn.cursor()
+        
         cur.execute("SELECT domain FROM crawldb.site WHERE domain = %s", (domain,))
         rows = cur.fetchall()
         if not rows:
