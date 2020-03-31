@@ -89,18 +89,22 @@ def get_images_links(domain):
 	#print("HYPERLINKS: ", hyperlinks)
 	#print("HYPERLINKS len: ", len(hyperlinks))
 	for hyperlink in hyperlinks:
-		print("HYPERLINK", hyperlink)
-		href = hyperlink['href']
+		#print("HYPERLINK", hyperlink)
+		try:
+			href = hyperlink['href']
+		except Exception as e:
+			print("There is no href in this a.", e)
+			continue
 		#print("HREF: ", href)
 		links.append(href)
 	# Links hidden in scripts
 	scripts = page.findAll('script')
 	for script in scripts:
-		print("SCRIPT: ")
-		print(script.text)
 		links_from_script = re.findall(r'(http://|https://)([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?',
                                script.text)
 		for link in links_from_script:
+			links_from_script = [''.join(l) for l in links_from_script]
+			if link
 			links.append(link)
 	print("IMAGES: ")
 	print(images)
