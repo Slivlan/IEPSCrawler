@@ -15,8 +15,10 @@ chrome_options = webdriver.ChromeOptions()
 chrome_options.add_argument('headless')
 driver = webdriver.Chrome(chrome_options = chrome_options)
 
+"""
+	Store site data in database in table crawldb.site
+"""
 def put_site_in_db(domain):
-
     try:
         robots_sitemap_data = get_robots_sitemap_data(domain)
 
@@ -35,6 +37,9 @@ def put_site_in_db(domain):
         cur.close()
         conn.close()
 
+"""
+	Get robots and sitemap data as tuple (robots_data, sitemap_data) if exists
+"""
 def get_robots_sitemap_data(domain):
     url = "http://{}/robots.txt".format(domain)
     rp = urllib.robotparser.RobotFileParser(url=url)
