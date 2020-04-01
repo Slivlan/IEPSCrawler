@@ -61,7 +61,7 @@ def get_urls_from_sitemap(domain):
 	urls = []
 	with lock:
 		try:
-			cur.execute("SELECT domain, sitemap_content FROM crawldb.site WHERE domain = %s", (domain,))
+			cur.execute("SELECT id, domain, sitemap_content FROM crawldb.site WHERE domain = %s", (domain,))
 			rows = cur.fetchall()
 
 			parsed_sitemap = BeautifulSoup(rows[0][1], features="html.parser")
@@ -92,7 +92,6 @@ def get_urls_from_sitemap(domain):
 def can_crawl(domain, url):
 	with lock:
 		try:
-
 			cur.execute("SELECT domain, robots_content FROM crawldb.site WHERE domain = %s", (domain,))
 			rows = cur.fetchall()
 			rp = urllib.robotparser.RobotFileParser()
