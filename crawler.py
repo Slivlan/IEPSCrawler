@@ -74,8 +74,9 @@ def get_urls_from_sitemap(domain):
 		try:
 			cur.execute("SELECT id, domain, sitemap_content FROM crawldb.site WHERE domain = %s", (domain,))
 			rows = cur.fetchall()
+			site_id = rows[0][0]
 
-			parsed_sitemap = BeautifulSoup(rows[0][1], features="html.parser")
+			parsed_sitemap = BeautifulSoup(rows[0][2], features="html.parser")
 			sitemapindex = parsed_sitemap.find("sitemapindex")
 			urlset = parsed_sitemap.find("urlset")
 
@@ -92,10 +93,19 @@ def get_urls_from_sitemap(domain):
 				sitemap_urls = [url.text for url in parsed_sitemap.find_all("url")]
 				urls.extend(sitemap_urls)
 
-			return urls
+			for url in urls:
+
+				#temporeray ker še ni funkcije za duplikate
+				cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
+				rows = cur.fetchall()
+				###
+				if not rows:
+					cur.execute("INSERT INTO crawldb.page(site_id, url) VALUES (%s, %s);", (site_id, url))
+
+			#return urls
 
 		except Exception as e:
-			return urls
+			print(e)
 
 """
 	Is url allowed to be crawled?
@@ -301,18 +311,20 @@ def get_content_type(url_link):
 	return page_type
 lock = threading.Lock() # TODO tole mamo zdj na dveh mestih v kodi, narobe vrjetno?
 
-# with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
-#     print(f"\n ... executing workers ...\n")
-#     reset_database()
-#     for domain in domains:
-#         executor.submit(put_site_in_db, domain)
-        #put_site_in_db(domain)
-        #can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
-        #executor.submit(get_images_links, 'https://'+domain)
-for domain in domains:
-        #executor.submit(put_site_in_db, domain)
-        #executor.submit(get_images_links, 'https://'+domain)
-        try:
-        	get_content_type('https://'+domain)
-        except Exception as e:
-        	print("ERROR: ", e)
+with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+	print(f"\n ... executing workers ...\n")
+	#reset_database()
+	# for domain in domains:
+	# 	get_urls_from_sitemap(domain)
+		#executor.submit(put_site_in_db, domain)
+		#put_site_in_db(domain)
+		#can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
+		#executor.submit(get_images_links, 'https://'+domain)
+	for domain in domains:
+			#executor.submit(put_site_in_db, domain)
+			executor.submit(get_urls_from_sitemap, domain)
+			# executor.submit(get_images_links, 'https://'+domain)
+			# try:
+			# 	get_content_type('https://'+domain)
+			# except Exception as e:
+			# 	print("ERROR: ", e)
