@@ -11,6 +11,7 @@ from operator import itemgetter
 import datetime 
 
 domains = ["gov.si", "evem.gov.si", "e-uprava.gov.si", "e-prostor.gov.si"]
+#domains = ['www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip']
 allowed_domain = '.gov.si'
 type_codes = {
 	'application/msword' : 'doc', 
@@ -164,7 +165,7 @@ def get_robots_sitemap_data(domain):
 """
 	Detect images and next links
 """
-def get_images_links(page_url):
+def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš za pomoč (je treba samo na začetku te funkcije? ali tudi na začetku get_content_type?)
 	chrome_options = webdriver.ChromeOptions()
 	chrome_options.add_argument('headless')
 	driver = webdriver.Chrome(chrome_options = chrome_options)
@@ -205,14 +206,11 @@ def get_images_links(page_url):
 			if href.startswith('www'):
 				href = 'http://{}'.format(url).strip()
 			if href.startswith('/'):
-				href = '{}{}'.format(page_url, href).strip()		
-		#href = '{}{}'.format(page_url, href).strip()
+				href = '{}{}'.format(page_url, href).strip()
 		links.append(href)
 	# Links hidden in scripts
 	scripts = page.findAll('script')
 	for script in scripts:
-		print("SCRIPT: ")
-		print(script.text)
 		links_from_script = re.findall(r'(http://|https://)([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?',
 							   script.text)
 		for link in links_from_script:
@@ -226,51 +224,70 @@ def get_images_links(page_url):
 				if link.startswith('/'):
 					link = '{}{}'.format(page_url, link).strip()
 			links.append(link)
-	link_to_frontier = []
-	#links_images = images + links # doesn't remove duplicate links
-	#links_images = list(set(images + links)) # removes duplicate links
+	link_to_db = []
+	page_data = []
 	if len(links) > 0:
+		myset = set(links) # remove duplicates
+		links = list(myset)
 		for i in links:
 			if (allowed_domain in i) and (page_url+'/' != i):
-				link_to_frontier.append({
+				link_to_db.append({
 					'from': page_url+'/',
 					'to': i
 				})
-	print("link_to_frontier: ")
-	print(link_to_frontier)
-	print("len(link_link): ", len(link_to_frontier))
-	image_to_frontier = []
+				pg_tp = get_content_type(i)
+				print("PG_TP")
+				print(pg_tp)
+				if (pg_tp['page_type_code'] != 'html') and (pg_tp['page_type_code'] in type_codes.values()):
+					page_data.append({
+						'data_type_code' : pg_tp['page_type_code'],
+						'data' : None
+					})
+				# if found link is not yet in table.page, add it to frontier (frontier.py, add_page()). # TODO function to connect to db and check if link (url) is already in table.page
+	print("link_to_db: ")
+	print(link_to_db)
+	print("len(link_link): ", len(link_to_db))
+	image_to_db = []
 	if len(images) > 0:
 		for i in images:
-			image_to_frontier.append({
+			filename = i.split('/')[-1].split('.')[0]
+			image_to_db.append({
 				'filename' : filename,
 				'content_type' : 'img',
 				'data' : None,
-				'accessed_time' : datetime.datetime.now()
+				'accessed_time' : datetime.datetime.now().strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
 			})
-	print("image_to_frontier: ")
-	print(image_to_frontier)
-	print("len(image_to_frontier): ", len(image_to_frontier))
-	page_type = get_content_type(url_link)#['page_type_code']
+	#print("image_to_db: ")
+	#print(image_to_db)
+	#print("len(image_to_db): ", len(image_to_db))
+	page_type = get_content_type(page_url)#['page_type_code']
 	page = {}
-	page_data = {}
-	if (page_type == 'html'): # TODO inside of this if has to be check if it is html or binary or duplicate (create function is_duplicate?)
+	if (page_type['page_type_code'] == 'html'): # TODO inside of this if has to be check if it is html or binary or duplicate (create function is_duplicate?)
 		page = {
 			'page_type_code' : 'html', # TODO change later to html/binary/duplicate
-			'url' : url_link,
+			'url' : page_url,
 			'html_content' : page_content,
 			'http_status_code' : page_type['status_code'],
-			'accessed_time' : datetime.datetime.now()
+			'accessed_time' : datetime.datetime.now().strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
 		}
-	elif (page_type != 'html'):
-		page_data = {
-			'data_type_code' : page_type['page_type_code'],
-			'data' : None
+		# TODO tle je vse neki narobe. zgori: page = link_url, to kar je trenutno. page_type_code = get_content_type(page_url)..
+		# page_data pa for links (vsi "to" linki, ki si jih zgori naštel), vzameš content type, če niso html (= other, pptx, docx,...) grejo v page_data.append({kar je treba})
+	elif (page_type['page_type_code'] != 'html'):
+		page = {
+			'page_type_code' : 'binary', # TODO change later to html/binary/duplicate
+			'url' : page_url,
+			'html_content' : page_content,
+			'http_status_code' : page_type['status_code'],
+			'accessed_time' : datetime.datetime.now().strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
 		}
+	print("PAGE")
+	print(page['page_type_code'], page['url'], page['http_status_code'], page['accessed_time'])
+	print("PAGE_DATA:")
+	print(page_data)
 	driver.close()
 	driver.quit()
 	print("-----KONECKONECKONEC-------")
-	return (link_to_frontier, image_to_frontier)
+	return (link_to_db, image_to_db, page, page_data)
 
 """
 	Get page content type
@@ -278,6 +295,7 @@ def get_images_links(page_url):
 def get_content_type(url_link):
 	res = ''
 	status_code = 0
+	page_type = {'page': url_link, 'status_code': status_code, 'page_type_code': 'other'}
 	try:
 		res = requests.get(url_link)
 		#print("res: ", res)
@@ -314,6 +332,6 @@ for domain in domains:
         #executor.submit(put_site_in_db, domain)
         #executor.submit(get_images_links, 'https://'+domain)
         try:
-        	get_content_type('https://'+domain)
+        	get_images_links('https://'+domain)
         except Exception as e:
         	print("ERROR: ", e)
