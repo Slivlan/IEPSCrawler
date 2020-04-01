@@ -6,9 +6,20 @@ import threading
 import concurrent.futures
 from bs4 import BeautifulSoup
 import re
+import requests
+from operator import itemgetter
+import datetime 
 
 domains = ["gov.si", "evem.gov.si", "e-uprava.gov.si", "e-prostor.gov.si"]
 allowed_domain = '.gov.si'
+type_codes = {
+	'application/msword' : 'doc', 
+	'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'docx', 
+	'application/pdf' : 'pdf', 
+	'application/vnd.ms-powerpoint' : 'ppt', 
+	'application/vnd.openxmlformats-officedocument.presentationml.presentation' : 'pptx',
+	'text/html' : 'html'
+}
 request_rate_sec = 5
 user_agent = "fri-ieps-nasagrupa"
 
@@ -152,12 +163,12 @@ def get_robots_sitemap_data(domain):
 """
 	Detect images and next links
 """
-def get_images_links(domain):
+def get_images_links(page_url):
 	chrome_options = webdriver.ChromeOptions()
 	chrome_options.add_argument('headless')
 	driver = webdriver.Chrome(chrome_options = chrome_options)
-	driver.get(domain)
-	print("Domain: ", domain)
+	driver.get(page_url)
+	print("Domain: ", page_url)
 	page_content = driver.page_source
 	images = []
 	links = []
@@ -193,8 +204,8 @@ def get_images_links(domain):
 			if href.startswith('www'):
 				href = 'http://{}'.format(url).strip()
 			if href.startswith('/'):
-				href = '{}{}'.format(domain, href).strip()
-		#href = '{}{}'.format(domain, href).strip()
+				href = '{}{}'.format(page_url, href).strip()		
+		#href = '{}{}'.format(page_url, href).strip()
 		links.append(href)
 	# Links hidden in scripts
 	scripts = page.findAll('script')
@@ -212,42 +223,96 @@ def get_images_links(domain):
 				if link.startswith('www'):
 					link = 'http://{}'.format(url).strip()
 				if link.startswith('/'):
-					link = '{}{}'.format(domain, link).strip()
+					link = '{}{}'.format(page_url, link).strip()
 			links.append(link)
 	link_to_frontier = []
 	#links_images = images + links # doesn't remove duplicate links
-	links_images = list(set(images + links)) # removes duplicate links
-	for i in links_images:
-		if (allowed_domain in i) and (domain+'/' != i):
-			link_to_frontier.append({
-				'from': domain+'/',
-				'to': i
-			})
+	#links_images = list(set(images + links)) # removes duplicate links
+	if len(links) > 0:
+		for i in links:
+			if (allowed_domain in i) and (page_url+'/' != i):
+				link_to_frontier.append({
+					'from': page_url+'/',
+					'to': i
+				})
 	print("link_to_frontier: ")
 	print(link_to_frontier)
 	print("len(link_link): ", len(link_to_frontier))
+	image_to_frontier = []
+	if len(images) > 0:
+		for i in images:
+			image_to_frontier.append({
+				'filename' : filename,
+				'content_type' : 'img',
+				'data' : None,
+				'accessed_time' : datetime.datetime.now()
+			})
+	print("image_to_frontier: ")
+	print(image_to_frontier)
+	print("len(image_to_frontier): ", len(image_to_frontier))
+	page_type = get_content_type(url_link)#['page_type_code']
+	page = {}
+	page_data = {}
+	if (page_type == 'html'): # TODO inside of this if has to be check if it is html or binary or duplicate (create function is_duplicate?)
+		page = {
+			'page_type_code' : 'html', # TODO change later to html/binary/duplicate
+			'url' : url_link,
+			'html_content' : page_content,
+			'http_status_code' : page_type['status_code'],
+			'accessed_time' : datetime.datetime.now()
+		}
+	elif (page_type != 'html'):
+		page_data = {
+			'data_type_code' : page_type['page_type_code'],
+			'data' : None
+		}
 	driver.close()
 	driver.quit()
 	print("-----KONECKONECKONEC-------")
-	return link_to_frontier
+	return (link_to_frontier, image_to_frontier)
 
-with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
-	print(f"\n ... executing workers ...\n")
-	#reset_database()
-	for domain in domains:
-		urls = get_urls_from_sitemap(domain)
+"""
+	Get page content type
+"""
+def get_content_type(url_link):
+	res = ''
+	status_code = 0
+	try:
+		res = requests.get(url_link)
+		#print("res: ", res)
+	except Exception as e:
+		print("Requests error: ", e)
+	if res != '':
+		try:
+			status_code = res.status_code
+			content_type = res.headers['Content-Type']
+			if ';' in content_type:
+				content_type = content_type.split(';')[0]
+			#print("CONTENT TYPE: ", content_type)
+		except Exception as e:
+			print("Content type error: ", e)
 
-		print("\n\n\n\n"+domain)
-		for url in urls:
-			print(url)
-		#executor.submit(put_site_in_db, domain)
-		#put_site_in_db(domain)
-		#can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
-		#executor.submit(get_images_links, 'https://'+domain)
-# for domain in domains:
-# 		#executor.submit(put_site_in_db, domain)
-# 		#executor.submit(get_images_links, 'https://'+domain)
-# 		try:
-# 			get_images_links('https://'+domain)
-# 		except Exception as e:
-# 			print("ERROR: ", e)
+		# doc, docx, pdf, ppt, pptx 
+		if content_type in type_codes:
+			page_type = {'page': url_link, 'status_code': status_code, 'page_type_code': type_codes[content_type]}
+		else:
+			page_type = {'page': url_link, 'status_code': status_code, 'page_type_code': 'other'}
+	#print(page_type)
+	return page_type
+lock = threading.Lock() # TODO tole mamo zdj na dveh mestih v kodi, narobe vrjetno?
+
+# with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+#     print(f"\n ... executing workers ...\n")
+#     reset_database()
+#     for domain in domains:
+#         executor.submit(put_site_in_db, domain)
+        #put_site_in_db(domain)
+        #can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
+        #executor.submit(get_images_links, 'https://'+domain)
+for domain in domains:
+        #executor.submit(put_site_in_db, domain)
+        #executor.submit(get_images_links, 'https://'+domain)
+        try:
+        	get_content_type('https://'+domain)
+        except Exception as e:
+        	print("ERROR: ", e)
