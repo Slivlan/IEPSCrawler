@@ -73,10 +73,11 @@ def get_urls_from_sitemap(domain):
 	urls = []
 	with lock:
 		try:
-			cur.execute("SELECT domain, sitemap_content FROM crawldb.site WHERE domain = %s", (domain,))
+			cur.execute("SELECT id, domain, sitemap_content FROM crawldb.site WHERE domain = %s", (domain,))
 			rows = cur.fetchall()
+			site_id = rows[0][0]
 
-			parsed_sitemap = BeautifulSoup(rows[0][1], features="html.parser")
+			parsed_sitemap = BeautifulSoup(rows[0][2], features="html.parser")
 			sitemapindex = parsed_sitemap.find("sitemapindex")
 			urlset = parsed_sitemap.find("urlset")
 
@@ -93,10 +94,19 @@ def get_urls_from_sitemap(domain):
 				sitemap_urls = [url.text for url in parsed_sitemap.find_all("url")]
 				urls.extend(sitemap_urls)
 
-			return urls
+			for url in urls:
+
+				#temporeray ker še ni funkcije za duplikate
+				cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
+				rows = cur.fetchall()
+				###
+				if not rows:
+					cur.execute("INSERT INTO crawldb.page(site_id, url) VALUES (%s, %s);", (site_id, url))
+
+			#return urls
 
 		except Exception as e:
-			return urls
+			print(e)
 
 """
 	Is url allowed to be crawled?
@@ -104,7 +114,6 @@ def get_urls_from_sitemap(domain):
 def can_crawl(domain, url):
 	with lock:
 		try:
-
 			cur.execute("SELECT domain, robots_content FROM crawldb.site WHERE domain = %s", (domain,))
 			rows = cur.fetchall()
 			rp = urllib.robotparser.RobotFileParser()
