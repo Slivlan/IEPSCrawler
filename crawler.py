@@ -28,7 +28,7 @@ cur = conn.cursor()
 lock = threading.Lock()
 
 def reset_database():
-	cur.execute("DELETE FROM crawldb.site *")
+	#cur.execute("DELETE FROM crawldb.site *")
 	cur.execute("DELETE FROM crawldb.page *")
 	cur.execute("DELETE FROM crawldb.image *")
 	cur.execute("DELETE FROM crawldb.page_data *")
@@ -58,93 +58,97 @@ def increment_next_page_id():
 	Get URLs from site map for domain
 """
 def get_urls_from_sitemap(domain):
-    urls = []
-    with lock:
-        try:
-            cur.execute("SELECT domain, sitemap_content FROM crawldb.site WHERE domain = %s", (domain,))
-            rows = cur.fetchall()
+	urls = []
+	with lock:
+		try:
+			cur.execute("SELECT domain, sitemap_content FROM crawldb.site WHERE domain = %s", (domain,))
+			rows = cur.fetchall()
 
-            parsed_sitemap = BeautifulSoup(rows[0][1])
-            sitemapindex = parsed_sitemap.find("sitemapindex")
-            urlset = parsed_sitemap.find("urlset")
+			parsed_sitemap = BeautifulSoup(rows[0][1], features="html.parser")
+			sitemapindex = parsed_sitemap.find("sitemapindex")
+			urlset = parsed_sitemap.find("urlset")
 
+			if sitemapindex:
+				for loc in parsed_sitemap.find_all("loc"):
+					request = urllib.request.Request(loc.text, headers={'User-Agent': user_agent})
+					with urllib.request.urlopen(request) as response:
+						loc_data = response.read().decode("utf-8")
+						parsed_sitemap_loc = BeautifulSoup(loc_data, features="html.parser")
+						urls_loc = parsed_sitemap_loc.find_all("loc")
+						urls.extend([url.text for url in urls_loc])
 
-            if sitemapindex:
-                locs = [loc.text for loc in parsed_sitemap.find_all("loc")]
-                urls.extend(locs)
+			if urlset:
+				sitemap_urls = [url.text for url in parsed_sitemap.find_all("url")]
+				urls.extend(sitemap_urls)
 
-            if urlset:
+			return urls
 
-
-
-
-            return urls
-        except Exception as e:
-            return None
+		except Exception as e:
+			return urls
 
 """
 	Is url allowed to be crawled?
 """
 def can_crawl(domain, url):
-    with lock:
-        try:
+	with lock:
+		try:
 
-            cur.execute("SELECT domain, robots_content FROM crawldb.site WHERE domain = %s", (domain,))
-            rows = cur.fetchall()
-            rp = urllib.robotparser.RobotFileParser()
-            rp.parse(rows[0][1])
-            return  rp.can_fetch(user_agent, url)
-        except Exception as e:
-            return True
+			cur.execute("SELECT domain, robots_content FROM crawldb.site WHERE domain = %s", (domain,))
+			rows = cur.fetchall()
+			rp = urllib.robotparser.RobotFileParser()
+			rp.parse(rows[0][1])
+			return  rp.can_fetch(user_agent, url)
+		except Exception as e:
+			return True
 
 """
 	Store site data in database in table crawldb.site
 """
 def put_site_in_db(domain):
-    with lock:
-        try:
-            robots_sitemap_data = get_robots_sitemap_data(domain)
-            cur.execute("SELECT domain FROM crawldb.site WHERE domain = %s", (domain,))
-            rows = cur.fetchall()
-            if not rows:
-                cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s)", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
+	with lock:
+		try:
+			robots_sitemap_data = get_robots_sitemap_data(domain)
+			cur.execute("SELECT domain FROM crawldb.site WHERE domain = %s", (domain,))
+			rows = cur.fetchall()
+			if not rows:
+				cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s)", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
 
-        except Exception as e:
-            print(e)
+		except Exception as e:
+			print(e)
 
 """
 	Get robots and sitemap data as tuple (robots_data, sitemap_data) if exists
 """
 def get_robots_sitemap_data(domain):
-    url = "http://{}/robots.txt".format(domain)
-    rp = urllib.robotparser.RobotFileParser(url=url)
-    rp.read()
+	url = "http://{}/robots.txt".format(domain)
+	rp = urllib.robotparser.RobotFileParser(url=url)
+	rp.read()
 
-    # crawl_delay_sec_t = rp.crawl_delay(user_agent)
-    # if crawl_delay_sec_t:
-    #     crawl_delay_sec = crawl_delay_sec_t
+	# crawl_delay_sec_t = rp.crawl_delay(user_agent)
+	# if crawl_delay_sec_t:
+	#     crawl_delay_sec = crawl_delay_sec_t
 
-    try:
-        request = urllib.request.Request(url, headers={'User-Agent': user_agent})
-        with urllib.request.urlopen(request) as response:
-            robots_data = response.read().decode("utf-8")
-    except Exception as e:
-        robots_data = None
+	try:
+		request = urllib.request.Request(url, headers={'User-Agent': user_agent})
+		with urllib.request.urlopen(request) as response:
+			robots_data = response.read().decode("utf-8")
+	except Exception as e:
+		robots_data = None
 
-    try:
-        s = rp.site_maps()
-        if s:
-            s = s[0]
-            request = urllib.request.Request(s, headers={'User-Agent': user_agent})
+	try:
+		s = rp.site_maps()
+		if s:
+			s = s[0]
+			request = urllib.request.Request(s, headers={'User-Agent': user_agent})
 
-            with urllib.request.urlopen(request) as response:
-                sitemap_data = response.read().decode("utf-8")
-        else:
-            sitemap_data = None
-    except Exception as e:
-        sitemap_data = None
+			with urllib.request.urlopen(request) as response:
+				sitemap_data = response.read().decode("utf-8")
+		else:
+			sitemap_data = None
+	except Exception as e:
+		sitemap_data = None
 
-    return (robots_data, sitemap_data)
+	return (robots_data, sitemap_data)
 
 """
 	Detect images and next links
@@ -199,7 +203,7 @@ def get_images_links(domain):
 		print("SCRIPT: ")
 		print(script.text)
 		links_from_script = re.findall(r'(http://|https://)([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?',
-                               script.text)
+							   script.text)
 		for link in links_from_script:
 			link = ''.join(link)
 			if link.startswith('http') == False:
@@ -229,18 +233,22 @@ def get_images_links(domain):
 	return link_to_frontier
 
 with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
-    print(f"\n ... executing workers ...\n")
-    #reset_database()
-    for domain in domains:
-        get_urls_from_sitemap(domain)
-        #executor.submit(put_site_in_db, domain)
-        #put_site_in_db(domain)
-        #can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
-        #executor.submit(get_images_links, 'https://'+domain)
-for domain in domains:
-        #executor.submit(put_site_in_db, domain)
-        #executor.submit(get_images_links, 'https://'+domain)
-        try:
-        	get_images_links('https://'+domain)
-        except Exception as e:
-        	print("ERROR: ", e)
+	print(f"\n ... executing workers ...\n")
+	#reset_database()
+	for domain in domains:
+		urls = get_urls_from_sitemap(domain)
+
+		print("\n\n\n\n"+domain)
+		for url in urls:
+			print(url)
+		#executor.submit(put_site_in_db, domain)
+		#put_site_in_db(domain)
+		#can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
+		#executor.submit(get_images_links, 'https://'+domain)
+# for domain in domains:
+# 		#executor.submit(put_site_in_db, domain)
+# 		#executor.submit(get_images_links, 'https://'+domain)
+# 		try:
+# 			get_images_links('https://'+domain)
+# 		except Exception as e:
+# 			print("ERROR: ", e)
