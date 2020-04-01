@@ -53,34 +53,63 @@ def increment_next_page_id():
 #print(get_next_page_id())
 #exit()
 
+"""
+	Get URLs from site map for domain
+"""
+def get_urls_from_sitemap(domain):
+    urls = []
+    with lock:
+        try:
+            cur.execute("SELECT domain, sitemap_content FROM crawldb.site WHERE domain = %s", (domain,))
+            rows = cur.fetchall()
+
+            parsed_sitemap = BeautifulSoup(rows[0][1])
+            sitemapindex = parsed_sitemap.find("sitemapindex")
+            urlset = parsed_sitemap.find("urlset")
+
+
+            if sitemapindex:
+                locs = [loc.text for loc in parsed_sitemap.find_all("loc")]
+                urls.extend(locs)
+
+            if urlset:
+
+
+
+
+            return urls
+        except Exception as e:
+            return None
 
 """
 	Is url allowed to be crawled?
 """
 def can_crawl(domain, url):
-    try:
-        cur.execute("SELECT domain, robots_content FROM crawldb.site WHERE domain = %s", (domain,))
-        rows = cur.fetchall()
-        rp = urllib.robotparser.RobotFileParser()
-        rp.parse(rows[0][1])
-        return  rp.can_fetch(user_agent, url)
-    except Exception as e:
-        return True
+    with lock:
+        try:
+
+            cur.execute("SELECT domain, robots_content FROM crawldb.site WHERE domain = %s", (domain,))
+            rows = cur.fetchall()
+            rp = urllib.robotparser.RobotFileParser()
+            rp.parse(rows[0][1])
+            return  rp.can_fetch(user_agent, url)
+        except Exception as e:
+            return True
 
 """
 	Store site data in database in table crawldb.site
 """
 def put_site_in_db(domain):
-    try:
-        robots_sitemap_data = get_robots_sitemap_data(domain)
-        
-        cur.execute("SELECT domain FROM crawldb.site WHERE domain = %s", (domain,))
-        rows = cur.fetchall()
-        if not rows:
-            cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s)", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
+    with lock:
+        try:
+            robots_sitemap_data = get_robots_sitemap_data(domain)
+            cur.execute("SELECT domain FROM crawldb.site WHERE domain = %s", (domain,))
+            rows = cur.fetchall()
+            if not rows:
+                cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s)", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
 
-    except Exception as e:
-        print(e)
+        except Exception as e:
+            print(e)
 
 """
 	Get robots and sitemap data as tuple (robots_data, sitemap_data) if exists
@@ -165,13 +194,12 @@ def get_images_links(domain):
 	driver.close()
 	driver.quit()
 
-lock = threading.Lock()
-
 with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
     print(f"\n ... executing workers ...\n")
-    reset_database()
+    #reset_database()
     for domain in domains:
-        executor.submit(put_site_in_db, domain)
+        get_urls_from_sitemap(domain)
+        #executor.submit(put_site_in_db, domain)
         #put_site_in_db(domain)
         #can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
         #executor.submit(get_images_links, 'https://'+domain)
