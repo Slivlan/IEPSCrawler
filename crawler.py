@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 import re
 
 domains = ["gov.si", "evem.gov.si", "e-uprava.gov.si", "e-prostor.gov.si"]
+allowed_domain = '.gov.si'
 request_rate_sec = 5
 user_agent = "fri-ieps-nasagrupa"
 
@@ -134,7 +135,7 @@ def get_images_links(domain):
 	for img in imgs:
 		#print("IMG ", img)
 		src = img['src']
-		#print("SRC2: ", src2)
+		#print("SRC: ", src)
 		if src.startswith('data:image'):
 			#print("OH YES.")
 			continue
@@ -150,6 +151,18 @@ def get_images_links(domain):
 			print("There is no href in this a.", e)
 			continue
 		#print("HREF: ", href)
+		if href == '':
+			print("HREF is None, empty")
+			continue
+		if href.startswith('http') == False:
+			if ('mailto:' in href) or  ('tel:' in href) or ('javascript:' in href) or (href[0] == '#') or (href == '/'):
+				#print("FOUND inappropriate: ", href)
+				continue
+			if href.startswith('www'):
+				href = 'http://{}'.format(url).strip()
+			if href.startswith('/'):
+				href = '{}{}'.format(domain, href).strip()		
+		#href = '{}{}'.format(domain, href).strip()
 		links.append(href)
 	# Links hidden in scripts
 	scripts = page.findAll('script')
@@ -157,32 +170,46 @@ def get_images_links(domain):
 		links_from_script = re.findall(r'(http://|https://)([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?',
                                script.text)
 		for link in links_from_script:
-			links_from_script = [''.join(l) for l in links_from_script]
-			if link
+			link = ''.join(link)
+			if link.startswith('http') == False:
+				if ('mailto:' in link) or  ('tel:' in link) or ('javascript:' in link) or (link[0] == '#') or (link == '/'):
+					#print("FOUND inappropriate: ", link)
+					continue
+				if link.startswith('www'):
+					link = 'http://{}'.format(url).strip()
+				if link.startswith('/'):
+					link = '{}{}'.format(domain, link).strip()
 			links.append(link)
-	print("IMAGES: ")
-	print(images)
-	print("LINKS: ")
-	print(links)
-	print("-----KONECKONECKONEC-------")
-	
+	link_to_frontier = []
+	#links_images = images + links # doesn't remove duplicate links
+	links_images = list(set(images + links)) # removes duplicate links
+	for i in links_images:
+		if (allowed_domain in i) and (domain+'/' != i):
+			link_to_frontier.append({
+				'from': domain+'/',
+				'to': i
+			})
+	print("link_to_frontier: ")
+	print(link_to_frontier)
+	print("len(link_link): ", len(link_to_frontier))
 	driver.close()
 	driver.quit()
+	print("-----KONECKONECKONEC-------")
 
 lock = threading.Lock()
 
-with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
-    print(f"\n ... executing workers ...\n")
-    reset_database()
-    for domain in domains:
-        executor.submit(put_site_in_db, domain)
+# with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+#     print(f"\n ... executing workers ...\n")
+#     reset_database()
+#     for domain in domains:
+#         executor.submit(put_site_in_db, domain)
         #put_site_in_db(domain)
         #can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
         #executor.submit(get_images_links, 'https://'+domain)
-# for domain in domains:
-#         #executor.submit(put_site_in_db, domain)
-#         #executor.submit(get_images_links, 'https://'+domain)
-#         try:
-#         	get_images_links('https://'+domain)
-#         except Exception as e:
-#         	print("ERROR: ", e)
+for domain in domains:
+        #executor.submit(put_site_in_db, domain)
+        #executor.submit(get_images_links, 'https://'+domain)
+        try:
+        	get_images_links('https://'+domain)
+        except Exception as e:
+        	print("ERROR: ", e)
