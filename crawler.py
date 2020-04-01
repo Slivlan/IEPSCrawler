@@ -195,6 +195,7 @@ def get_images_links(domain):
 	driver.close()
 	driver.quit()
 	print("-----KONECKONECKONEC-------")
+	return link_to_frontier
 
 lock = threading.Lock()
 
