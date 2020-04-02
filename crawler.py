@@ -180,7 +180,6 @@ def get_site_id(domain):
 		except Exception as e:
 			print(e)
 
-
 """ 
 	Store page data in database in table crawldb.page, and return its id
 """
