@@ -9,6 +9,7 @@ import re
 import requests
 from operator import itemgetter
 import datetime
+import hashlib
 
 domains = ["gov.si", "evem.gov.si", "e-uprava.gov.si", "e-prostor.gov.si"]
 #domains = ['www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip']
@@ -65,6 +66,35 @@ def increment_next_page_id():
 #increment_next_page_id()
 #print(get_next_page_id())
 #exit()
+
+"""
+	Get hash for html
+"""
+def html_md5(html):
+	hasher = hashlib.md5()
+	a = hasher.update(html.encode('utf-8'))
+	return str(hasher.hexdigest())
+
+"""
+	Is there a duplicate of page
+"""
+def is_duplicate_page(url, html):
+	with lock:
+		try:
+			cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
+			rows = cur.fetchall()
+			if rows:
+				return True
+			else:
+				cur.execute("SELECT * FROM crawldb.page WHERE html_content_md5 = %s", (html_md5(html),))
+				rows = cur.fetchall()
+				if rows:
+					return True
+			return False
+
+		except Exception as e:
+			print(e)
+			return False
 
 """
 	Get URLs from site map for domain
@@ -331,10 +361,10 @@ def get_content_type(url_link):
         #put_site_in_db(domain)
         #can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
         #executor.submit(get_images_links, 'https://'+domain)
-for domain in domains:
-        #executor.submit(put_site_in_db, domain)
-        #executor.submit(get_images_links, 'https://'+domain)
-        try:
-        	get_images_links('https://'+domain)
-        except Exception as e:
-        	print("ERROR: ", e)
+# for domain in domains:
+#         #executor.submit(put_site_in_db, domain)
+#         #executor.submit(get_images_links, 'https://'+domain)
+#         try:
+#         	get_images_links('https://'+domain)
+#         except Exception as e:
+#         	print("ERROR: ", e)
