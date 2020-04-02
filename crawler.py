@@ -205,6 +205,20 @@ def put_page_in_db(page_object):
 		except Exception as e:
 			print(e)
 
+"""
+	Get page id
+"""
+def get_page_id(url):
+	with lock:
+		try:
+			cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
+			rows = cur.fetchall()
+			if rows:
+				page_id = rows[0][0]
+			return page_id
+		except Exception as e:
+			print(e)	
+
 '''
 	Creates empty page table in database. page_object must have parameters site_id and url. 
 '''
@@ -299,7 +313,8 @@ def get_images_links(page_url):
 			'html_content_md5' : html_md5(page_cnt),
 			'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
 		}
-		# TODO funkcija za update page-a? Ali kaj? Nismo zihr ker ne vemo kdaj se ta funkcija (get-images_links) kliče.
+		# TODO funkcija za update page-a? Ali kaj?
+
 	print("PAGE")
 	print(page['page_type_code'], page['url'], page['http_status_code'], page['accessed_time'])
 
@@ -378,7 +393,6 @@ def get_images_links(page_url):
 					domain_found_link  = '.'.join(t.split('.')[-2:])
 					if (can_crawl(domain_found_link, i)):
 						id_site = get_site_id(domain_found_link) # Če ni notr, lahk ful cajta traja.
-						# TODO ustvari vnos v tabelo page za ta i. pug_page_in_db()
 						id_page = put_page_in_db(page)
 						frontier.add_page(i, domain_found_link)
 				link_to_db.append({ # TODO poberi id od trenutne strani in 'to' strani
@@ -411,7 +425,7 @@ def get_images_links(page_url):
 	print("-----KONECKONECKONEC-------")
 	#return (link_to_db, image_to_db, page, page_data)
 	# TODO UPDATE trenutni page (že more obstajat, ga samo updateaš - use razn url-ja pa id-ja) page putam notr.
-
+	
 	# TODO INSERT link_to_db v tabelo link
 
 	# TODO INSERT image_to_db v tabelo image
