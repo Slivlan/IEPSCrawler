@@ -19,10 +19,10 @@ domains = ["gov.si", "evem.gov.si", "e-uprava.gov.si", "e-prostor.gov.si"]
 #domains = ['www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip']
 allowed_domain = '.gov.si'
 type_codes = {
-	'application/msword' : 'doc', 
-	'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'docx', 
-	'application/pdf' : 'pdf', 
-	'application/vnd.ms-powerpoint' : 'ppt', 
+	'application/msword' : 'doc',
+	'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'docx',
+	'application/pdf' : 'pdf',
+	'application/vnd.ms-powerpoint' : 'ppt',
 	'application/vnd.openxmlformats-officedocument.presentationml.presentation' : 'pptx',
 	'text/html' : 'html'
 }
@@ -74,8 +74,7 @@ def increment_next_page_id():
 """
 	Get URLs from site map for domain
 """
-def get_urls_from_sitemap(domain):
-	urls = []
+def load_sitemap_urls_to_pages(domain):
 	with lock:
 		try:
 			cur.execute("SELECT id, domain, sitemap_content FROM crawldb.site WHERE domain = %s", (domain,))
@@ -93,22 +92,18 @@ def get_urls_from_sitemap(domain):
 						loc_data = response.read().decode("utf-8")
 						parsed_sitemap_loc = BeautifulSoup(loc_data, features="html.parser")
 						urls_loc = parsed_sitemap_loc.find_all("loc")
-						urls.extend([url.text for url in urls_loc])
+						for url in urls_loc:
+							cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url.text,))
+							rows = cur.fetchall()
+							if not rows:
+								cur.execute("INSERT INTO crawldb.page(site_id, url) VALUES (%s, %s);", (site_id, url.text))
 
 			if urlset:
-				sitemap_urls = [url.text for url in parsed_sitemap.find_all("url")]
-				urls.extend(sitemap_urls)
-
-			for url in urls:
-
-				#temporeray ker še ni funkcije za duplikate
-				cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
-				rows = cur.fetchall()
-				###
-				if not rows:
-					cur.execute("INSERT INTO crawldb.page(site_id, url) VALUES (%s, %s);", (site_id, url))
-
-			#return urls
+				for url in parsed_sitemap.find_all("url"):
+					cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url.text,))
+					rows = cur.fetchall()
+					if not rows:
+						cur.execute("INSERT INTO crawldb.page(site_id, url) VALUES (%s, %s);", (site_id, url.text))
 
 		except Exception as e:
 			print(e)
@@ -353,7 +348,7 @@ def get_content_type(url_link):
 		except Exception as e:
 			print("Content type error: ", e)
 
-		# doc, docx, pdf, ppt, pptx 
+		# doc, docx, pdf, ppt, pptx
 		if content_type in type_codes:
 			page_type = {'page': url_link, 'status_code': status_code, 'page_type_code': type_codes[content_type]}
 		else:
