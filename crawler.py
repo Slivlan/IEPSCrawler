@@ -18,6 +18,7 @@ import hashlib
 frontier = Frontier()
 
 domains = ["gov.si", "evem.gov.si", "e-uprava.gov.si", "e-prostor.gov.si"]
+urls = ["https://www.gov.si", "http://evem.gov.si/evem/drzavljani/zacetna.evem", "https://e-uprava.gov.si/", "https://www.e-prostor.gov.si/"]
 #domains = ['www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip']
 allowed_domain = '.gov.si'
 type_codes = {
@@ -203,6 +204,22 @@ def put_page_in_db(page_object):
 			return page_id
 		except Exception as e:
 			print(e)
+
+'''
+	Creates empty page table in database. page_object must have parameters site_id and url. 
+'''
+def put_empty_page_in_db(page_object):
+	site_id = page_object['site_id']
+	url = page_object['url']
+	with lock: # TODO a gre with lock pred tem zgori al je tko ok, da je po tem?
+		try:
+			cur.execute('SELECT url FROM crawldb.page WHERE url = %s', (url,))
+			rows = cur.fetchall()
+			if not rows:
+				cur.execute('INSERT INTO crawldb.page (site_id, url) VALUES (%s, %s)', (site_id, url))
+		except Exception as e:
+			print(e)
+
 """
 	Get robots and sitemap data as tuple (robots_data, sitemap_data) if exists
 """
@@ -323,7 +340,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 				# print(pg_tp)
 				if (pg_tp['page_type_code'] != 'html') and (pg_tp['page_type_code'] in type_codes.values()):
 					page_data.append({
-						'page_id' : None , # TODO kako dobit id?
+						'page_id' : None, # TODO kako dobit id?
 						'data_type_code' : pg_tp['page_type_code'],
 						'data' : None
 					})
@@ -434,19 +451,60 @@ def is_link_in_table_page(url):
 	print("URL ", url, " is already in.")
 	return True
 
+
+def worker_loop():
+	print("Starting worker loop. ")
+	while(frontier.has_page()):
+		url = frontier.get_page
+		print("Working on: " + url)
+		print("Finished working on: " + url)
+
+	print("No more pages in frontier, shutting worker down. ")
+
+
+print("here1")
+# base logika - najprej reset baze, pol dodamo domene in zacetne page na teh domenah v bazo, pol pa nardimo threadpool
+reset_database()
+
+print("here2")
+
+for i in range(4):
+	print(i)
+	site_id = get_site_id(domains[i]) # ustvarimo nov site za trenutno domeno
+
+	# mormo se dodat frontpage te domene v tabelo page in frontier
+	print('a')
+	page_object = {}
+	print('b')
+	page_object['site_id'] = site_id
+	print('c')
+	page_object['url'] = urls[i]
+	print('d')
+	put_empty_page_in_db(page_object)
+	print('e')
+	frontier.add_site(domains[i])
+	print('f')
+	frontier.add_page(urls[i], domains[i])
+	print('g')
+
 with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
 	print(f"\n ... executing workers ...\n")
-	#reset_database()
-	for domain in domains:
-		#executor.submit(put_site_in_db, domain)
-		get_site_id(domain)
-		#put_page_in_db({'site_id':7, 'page_type_code':'HTML', 'url':'https://testt.si/', 'html_content':'<html></html>', 'http_status_code':200, 'html_content_md5': html_md5("<html></html>")})
-		#can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
-		#executor.submit(get_images_links, 'https://'+domain)
-# for domain in domains:
-#         #executor.submit(put_site_in_db, domain)
-#         #executor.submit(get_images_links, 'https://'+domain)
-#         try:
-#         	get_images_links('https://'+domain)
-#         except Exception as e:
-#         	print("ERROR: ", e)
+	for i in range(6):
+		executor.submit(worker_loop)
+	'''	
+    for domain in domains:
+        executor.submit(put_site_in_db, domain)
+        put_site_in_db(domain)
+        can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
+        executor.submit(get_images_links, 'https://'+domain)
+	'''
+
+'''
+for domain in domains:
+        #executor.submit(put_site_in_db, domain)
+        #executor.submit(get_images_links, 'https://'+domain)
+        try:
+        	get_images_links('https://'+domain)
+        except Exception as e:
+        	print("ERROR: ", e)
+'''
