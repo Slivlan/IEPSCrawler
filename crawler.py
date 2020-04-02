@@ -320,8 +320,8 @@ def get_images_links(page_url):
 	chrome_options.add_argument('headless')
 	driver = webdriver.Chrome(chrome_options = chrome_options)
 	driver.get(page_url)
-	t = urlparse(page_url).netloc
-	domain  = '.'.join(t.split('.')[-2:])
+	domain = urlparse(page_url).netloc # Če boš tole spodi s subdomainom odkomentiral, zamenjaj v tej vrstici domain z t
+	#domain  = '.'.join(t.split('.')[-2:]) # Če želimo imeti samo main domain, ne pa tudi subdomain, npr. za www.e-vem.gov.si kot domain upoštevamo samo gov.si
 	print("Page url: ", page_url)
 	print("Domain: ", domain)
 
@@ -362,7 +362,6 @@ def get_images_links(page_url):
 			'html_content_md5' : html_md5(page_cnt),
 			'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
 		}
-		# TODO funkcija za update page-a? Ali kaj?
 		update_page_entry(id_trenutnega_pagea, page)
 	print("PAGE")
 	print(page['page_type_code'], page['url'], page['http_status_code'], page['accessed_time'])
