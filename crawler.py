@@ -91,16 +91,21 @@ def html_md5(html):
 """
 def insert_imgs_to_db(list_of_images):
 	with lock:
-		for image in list_of_images:
-			cur.execute("INSERT INTO crawldb.image (page_id, filename, content_type, accessed_time) VALUES (%s, %s, %s, NOW());", (image['page_id'], image['filename'], image['content_type']))
-
+		try:
+			for image in list_of_images:
+				cur.execute("INSERT INTO crawldb.image (page_id, filename, content_type, accessed_time) VALUES (%s, %s, %s, NOW());", (image['page_id'], image['filename'], image['content_type']))
+		except Exception as e:
+			print(e)
 """
 	Insert page_data to db and return id
 """
-def insert_page_data_to_db(page_data):
+def insert_page_data_to_db(page_data_list):
 	with lock:
-		cur.execute('INSERT INTO crawldb.page_data (page_id, data_type_code) VALUES (%s, %s) RETURNING id;', (page_data['page_id'], page_data['data_type_code']))
-		return cur.fetchone()[0]
+		try:
+			for page_data in page_data_list:
+				cur.execute('INSERT INTO crawldb.page_data (page_id, data_type_code) VALUES (%s, %s) RETURNING id;', (page_data['page_id'], page_data['data_type_code']))
+		except Exception as e:
+			print(e)
 
 """
 	Is there a duplicate of page
@@ -445,8 +450,9 @@ def get_images_links(page_url):
 	# TODO INSERT link_to_db v tabelo link
 
 	# TODO INSERT image_to_db v tabelo image
-
+	insert_imgs_to_db(image_to_db)
 	# TODO INSERT page_data v tabelo page_data
+	insert_page_data_to_db(page_data)
 
 """
 	Get page content type
