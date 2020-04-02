@@ -48,12 +48,12 @@ cur = conn.cursor()
 lock = threading.Lock()
 
 def reset_database():
-	cur.execute("DELETE FROM crawldb.site *")
+	#cur.execute("DELETE FROM crawldb.site *")
 	cur.execute("DELETE FROM crawldb.page *")
 	cur.execute("DELETE FROM crawldb.image *")
 	cur.execute("DELETE FROM crawldb.page_data *")
-	cur.execute("DELETE FROM crawldb.data_type *")
-	cur.execute("DELETE FROM crawldb.page_type *")
+	#cur.execute("DELETE FROM crawldb.data_type *")
+	#cur.execute("DELETE FROM crawldb.page_type *")
 	cur.execute("DELETE FROM crawldb.link *")
 	cur.execute("DELETE FROM Frontier *")
 	cur.execute("INSERT INTO Frontier (next_page_id) VALUES (1)")
@@ -92,14 +92,14 @@ def html_md5(html):
 def insert_imgs_to_db(list_of_images):
 	with lock:
 		for image in list_of_images:
-			cur.execute("INSERT INTO crawldb.image(page_id, filename, content_type, accessed_time) VALUES (?, ?, ?, NOW());", (image['page_id'], image['filename'], image['content_type']))
+			cur.execute("INSERT INTO crawldb.image (page_id, filename, content_type, accessed_time) VALUES (%s, %s, %s, NOW());", (image['page_id'], image['filename'], image['content_type']))
 
 """
 	Insert page_data to db and return id
 """
 def insert_page_data_to_db(page_data):
 	with lock:
-		cur.execute("INSERT INTO crawldb.page_data (page_id, data_type_code) VALUES (?, ?) RETURNING id;", (page_data['page_id'], page_data['data_type_code'], ))
+		cur.execute('INSERT INTO crawldb.page_data (page_id, data_type_code) VALUES (%s, %s) RETURNING id;', (page_data['page_id'], page_data['data_type_code']))
 		return cur.fetchone()[0]
 
 """
@@ -308,7 +308,7 @@ def get_images_links(page_url):
 			'url' : page_url,
 			'html_content' : page_cnt,
 			'http_status_code' : page_type['status_code'],
-			'html_content_md5' : html_md5(page_cnt)
+			'html_content_md5' : html_md5(page_cnt),
 			'accessed_time' : datetime.datetime.now() # .strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
 		}
 	elif (page_type['page_type_code'] != 'html'):
