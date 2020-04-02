@@ -156,25 +156,27 @@ def can_crawl(domain, url):
 			return True
 
 """
-	Store site data in database in table crawldb.site. Create site if it doesn't exist yet.
+	Store site data in database in table crawldb.site, if it doesn't exist yet, and return its id 
 """
 def get_site_id(domain):
 	with lock:
 		try:
 			robots_sitemap_data = get_robots_sitemap_data(domain)
-			cur.execute("SELECT domain FROM crawldb.site WHERE domain = %s", (domain,))
+			cur.execute("SELECT * FROM crawldb.site WHERE domain = %s", (domain,))
 			rows = cur.fetchall()
+			if rows:
+				site_id = rows[0][0]
 			if not rows:
-				cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s)", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
+				cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s) RETURNING id", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
+				site_id = cur.fetchone()[0]
 				frontier.add_site(domain)
 				load_sitemap_urls_to_pages(domain)
-			# TODO return created entry site_id
+			return site_id
 		except Exception as e:
 			print(e)
 
-
 """ 
-	Store page data in database in table crawldb.page
+	Store page data in database in table crawldb.page, and return its id
 """
 def put_page_in_db(page_object):
 	site_id = page_object['site_id']
@@ -182,14 +184,19 @@ def put_page_in_db(page_object):
 	url = page_object['url']
 	html_content = page_object['html_content']
 	http_status_code = page_object['http_status_code']
-	accessed_time = page_object['accessed_time']
-	with lock: # TODO a gre with lock pred tem zgori al je tko ok, da je po tem?
+	html_content_md5 = page_object['html_content_md5']
+	#accessed_time = page_object['accessed_time']
+	with lock:
 		try:
-			cur.execute('SELECT url FROM crawldb.page WHERE url = %s', (url,))
+			cur.execute('SELECT * FROM crawldb.page WHERE url = %s', (url,))
 			rows = cur.fetchall()
+			if rows:
+				page_id = rows[0][0]
 			if not rows:
-				cur.execute('INSERT INTO crawldb.page (site_id, page_type_code, url, html_content, http_status_code, accessed_time) VALUES (%s, %s, %s, %s, %s)', (site_id, page_type_code, url, html_content, http_status_code, accessed_time))
-			# TODO return created entry page_id
+				#cur.execute('INSERT INTO crawldb.page (site_id, page_type_code, url, html_content, http_status_code, accessed_time) VALUES (%s, %s, %s, %s, %s) RETURNING id', (site_id, page_type_code, url, html_content, http_status_code, accessed_time))
+				cur.execute('INSERT INTO crawldb.page (site_id, page_type_code, url, html_content, http_status_code, accessed_time, html_content_md5) VALUES (%s, %s, %s, %s, %s, NOW(), %s) RETURNING id', (site_id, page_type_code, url, html_content, http_status_code, html_content_md5))
+				page_id = cur.fetchone()[0]
+			return page_id
 		except Exception as e:
 			print(e)
 """
@@ -314,7 +321,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 				# print(pg_tp)
 				if (pg_tp['page_type_code'] != 'html') and (pg_tp['page_type_code'] in type_codes.values()):
 					page_data.append({
-						'page_id' : None # TODO kako dobit id?
+						'page_id' : None , # TODO kako dobit id?
 						'data_type_code' : pg_tp['page_type_code'],
 						'data' : None
 					})
@@ -425,18 +432,19 @@ def is_link_in_table_page(url):
 	print("URL ", url, " is already in.")
 	return True
 
-# with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
-#     print(f"\n ... executing workers ...\n")
-#     reset_database()
-#     for domain in domains:
-#         executor.submit(put_site_in_db, domain)
-        #put_site_in_db(domain)
-        #can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
-        #executor.submit(get_images_links, 'https://'+domain)
-for domain in domains:
-        #executor.submit(put_site_in_db, domain)
-        #executor.submit(get_images_links, 'https://'+domain)
-        try:
-        	get_images_links('https://'+domain)
-        except Exception as e:
-        	print("ERROR: ", e)
+with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+	print(f"\n ... executing workers ...\n")
+	#reset_database()
+	for domain in domains:
+		#executor.submit(put_site_in_db, domain)
+		#get_site_id(domain)
+		put_page_in_db({'site_id':7, 'page_type_code':'HTML', 'url':'https://testt.si/', 'html_content':'<html></html>', 'http_status_code':200, 'html_content_md5': html_md5("<html></html>")})
+		#can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
+		#executor.submit(get_images_links, 'https://'+domain)
+# for domain in domains:
+#         #executor.submit(put_site_in_db, domain)
+#         #executor.submit(get_images_links, 'https://'+domain)
+#         try:
+#         	get_images_links('https://'+domain)
+#         except Exception as e:
+#         	print("ERROR: ", e)
