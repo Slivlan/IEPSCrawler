@@ -236,6 +236,33 @@ def put_empty_page_in_db(page_object):
 			print(e)
 
 """
+	Update page entry
+"""
+def update_page_entry(page_id, page_object):
+	site_id = page_object['site_id']
+	page_type_code = page_object['page_type_code']
+	url = page_object['url']
+	html_content = page_object['html_content']
+	http_status_code = page_object['http_status_code']
+	html_content_md5 = page_object['html_content_md5']
+	accessed_time = page_object['accessed_time']
+	with lock:
+		try:
+			cur.execute('UPDATE crawldb.page SET (site_id = %s, page_type_code = %s, url = %s, html_content = %s, http_status_code = %s, html_content_md5 = %s, accessed_time = %s) WHERE (page_id = %s)', (site_id, page_type_code, url, html_content, http_status_code, html_content_md5, accessed_time, page_id))
+		except Exception as e:
+			print(e)
+"""
+	Insert link to db
+"""
+def put_link_in_db(link_object):
+	from_page = link_object['from']
+	to_page = link_object['to']
+	with lock:
+		try:
+			cur.execute('INSERT INTO crawldb.link (from_page, to_page) VALUES (%s, %s)', (from_page, to_page))
+		except Exception as e:
+			print(e)
+"""
 	Get robots and sitemap data as tuple (robots_data, sitemap_data) if exists
 """
 def get_robots_sitemap_data(domain):
@@ -281,6 +308,7 @@ def get_images_links(page_url):
 	print("Page url: ", page_url)
 	print("Domain: ", domain)
 
+	id_trenutnega_sitea = get_site_id(domain)
 	id_trenutnega_pagea = get_page_id(page_url)
 	page_content = driver.page_source
 	page_cnt = BeautifulSoup(page_content, 'html.parser')
@@ -289,6 +317,7 @@ def get_images_links(page_url):
 	page = {}
 	if (page_type['page_type_code'] == 'html'):
 		page = {
+			'site_id' : id_trenutnega_sitea,
 			'page_type_code' : 'html',
 			'url' : page_url,
 			'html_content' : page_cnt,
@@ -298,6 +327,7 @@ def get_images_links(page_url):
 		}
 	elif (page_type['page_type_code'] != 'html'):
 		page = {
+			'site_id' : id_trenutnega_sitea,
 			'page_type_code' : 'binary',
 			'url' : page_url,
 			'html_content' : None,
@@ -307,6 +337,7 @@ def get_images_links(page_url):
 		}
 	if (is_duplicate_page(page_url, page_cnt) == True):
 		page = {
+			'site_id' : id_trenutnega_sitea,
 			'page_type_code' : 'duplicate',
 			'url' : page_url,
 			'html_content' : page_cnt,
@@ -315,7 +346,7 @@ def get_images_links(page_url):
 			'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
 		}
 		# TODO funkcija za update page-a? Ali kaj?
-
+		update_page_entry(id_trenutnega_pagea, page)
 	print("PAGE")
 	print(page['page_type_code'], page['url'], page['http_status_code'], page['accessed_time'])
 
@@ -411,6 +442,7 @@ def get_images_links(page_url):
 		for i in images:
 			filename = i.split('/')[-1].split('.')[0]
 			image_to_db.append({
+				'page_id' : id_trenutnega_pagea,
 				'filename' : filename,
 				'content_type' : 'img',
 				'data' : None,
@@ -426,9 +458,10 @@ def get_images_links(page_url):
 	print("-----KONECKONECKONEC-------")
 	#return (link_to_db, image_to_db, page, page_data)
 	# TODO UPDATE trenutni page (že more obstajat, ga samo updateaš - use razn url-ja pa id-ja) page putam notr.
-	
+	update_page_entry(id_trenutnega_pagea, page)
 	# TODO INSERT link_to_db v tabelo link
-
+	for li in link_to_db:
+		put_link_in_db(li)
 	# TODO INSERT image_to_db v tabelo image
 
 	# TODO INSERT page_data v tabelo page_data
