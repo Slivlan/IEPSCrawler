@@ -9,8 +9,10 @@ from bs4 import BeautifulSoup
 import re
 import requests
 from operator import itemgetter
-import datetime 
+import datetime
 from frontier import Frontier
+import datetime
+import hashlib
 
 # Frontier object for frontier interaction
 frontier = Frontier()
@@ -70,6 +72,35 @@ def increment_next_page_id():
 #increment_next_page_id()
 #print(get_next_page_id())
 #exit()
+
+"""
+	Get hash for html
+"""
+def html_md5(html):
+	hasher = hashlib.md5()
+	a = hasher.update(html.encode('utf-8'))
+	return str(hasher.hexdigest())
+
+"""
+	Is there a duplicate of page
+"""
+def is_duplicate_page(url, html):
+	with lock:
+		try:
+			cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
+			rows = cur.fetchall()
+			if rows:
+				return True
+			else:
+				cur.execute("SELECT * FROM crawldb.page WHERE html_content_md5 = %s", (html_md5(html),))
+				rows = cur.fetchall()
+				if rows:
+					return True
+			return False
+
+		except Exception as e:
+			print(e)
+			return False
 
 """
 	Get URLs from site map for domain
