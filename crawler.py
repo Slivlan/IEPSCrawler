@@ -272,12 +272,12 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 						'data_type_code' : pg_tp['page_type_code'],
 						'data' : None
 					})
-				# if found link is not yet in table.page, add it to frontier (frontier.py, add_page()). # TODO function to connect to db and check if link (url) is already in table.page
+				# if found link is not yet in table.page, add it to frontier (frontier.py, add_page()).
 				if is_link_in_table_page(i) == False:
 					#link_to_frontier.append(i) # TODO dodam samo link do te strani, ni potrebno dat oboje (in "from" in "to"), je tko?
 					t = urlparse(i).netloc
 					domain  = '.'.join(t.split('.')[-2:])
-					frontier.add_page(i, domain) # TODO kaj je domain kaj pa url
+					frontier.add_page(i, domain)
 	# print("link_to_db: ")
 	# print(link_to_db)
 	# print("len(link_to_db): ", len(link_to_db))
