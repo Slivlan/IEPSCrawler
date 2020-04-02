@@ -56,6 +56,10 @@ def reset_database():
 	cur.execute("DELETE FROM crawldb.link *")
 	cur.execute("DELETE FROM Frontier *")
 	cur.execute("INSERT INTO Frontier (next_page_id) VALUES (1)")
+	cur.execute("ALTER SEQUENCE	crawldb.image_id_seq RESTART WITH 1;")
+	cur.execute("ALTER SEQUENCE	crawldb.page_data_id_seq RESTART WITH 1;")
+	cur.execute("ALTER SEQUENCE	crawldb.page_id_seq RESTART WITH 1;")
+	cur.execute("ALTER SEQUENCE	crawldb.site_id_seq RESTART WITH 1;")
 
 def get_next_page_id():
 	with lock:
@@ -437,8 +441,8 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
 	#reset_database()
 	for domain in domains:
 		#executor.submit(put_site_in_db, domain)
-		#get_site_id(domain)
-		put_page_in_db({'site_id':7, 'page_type_code':'HTML', 'url':'https://testt.si/', 'html_content':'<html></html>', 'http_status_code':200, 'html_content_md5': html_md5("<html></html>")})
+		get_site_id(domain)
+		#put_page_in_db({'site_id':7, 'page_type_code':'HTML', 'url':'https://testt.si/', 'html_content':'<html></html>', 'http_status_code':200, 'html_content_md5': html_md5("<html></html>")})
 		#can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
 		#executor.submit(get_images_links, 'https://'+domain)
 # for domain in domains:
