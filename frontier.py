@@ -1,12 +1,17 @@
 import time
 import queue
 
+
+import threading
+import concurrent.futures
+
 class Frontier:
     
-    def __init__(self):
+    def __init__(self, wait_time = 5):
         self.sites = queue.Queue()
         self.sitesDictionary = {}
         self.numOfPages = 0
+        self.wait_time = wait_time
 
     '''
     Doda domain v dictionary sites. Ce ze obstaja, vrne false, drugace vrne true.
@@ -45,12 +50,13 @@ class Frontier:
             s = self.sites.get()
             self.sites.put(s)
             if(s.has_page()):
-                s.halt_till_allowed(5)
+                self.numOfPages -= 1
+                page = s.get_page()
+                s.halt_till_allowed(self.wait_time)
                 s.accessed()
                 break
             
-        self.numOfPages -= 1
-        return s.get_page()
+        return page
 
     def has_page(self):
         return self.numOfPages > 0
@@ -60,6 +66,7 @@ class Site:
     #domain #string
     #last_accessed #struct_time al whatever - v sekundah
     #pages = queue.Queue() #queue page classov
+    #numOfPages = int - stevilo pagov, ki jih ima queue
 
     def __init__(self, dom):
         self.domain = dom

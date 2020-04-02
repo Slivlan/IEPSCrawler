@@ -48,15 +48,12 @@ cur = conn.cursor()
 lock = threading.Lock()
 
 def reset_database():
-	cur.execute("DELETE FROM crawldb.site *")
-	cur.execute("DELETE FROM crawldb.page *")
 	cur.execute("DELETE FROM crawldb.image *")
 	cur.execute("DELETE FROM crawldb.page_data *")
-	cur.execute("DELETE FROM crawldb.data_type *")
-	cur.execute("DELETE FROM crawldb.page_type *")
 	cur.execute("DELETE FROM crawldb.link *")
-	cur.execute("DELETE FROM Frontier *")
-	cur.execute("INSERT INTO Frontier (next_page_id) VALUES (1)")
+	cur.execute("DELETE FROM crawldb.page *")
+	cur.execute("DELETE FROM crawldb.site *")
+	
 	cur.execute("ALTER SEQUENCE	crawldb.image_id_seq RESTART WITH 1;")
 	cur.execute("ALTER SEQUENCE	crawldb.page_data_id_seq RESTART WITH 1;")
 	cur.execute("ALTER SEQUENCE	crawldb.page_id_seq RESTART WITH 1;")
@@ -134,7 +131,7 @@ def load_sitemap_urls_to_pages(domain):
 							if not rows:
 								cur.execute("INSERT INTO crawldb.page(site_id, url) VALUES (%s, %s);", (site_id, url.text))
 								frontier.add_page(url.text, domain)
-
+								
 			if urlset:
 				for url in parsed_sitemap.find_all("url"):
 					cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url.text,))
@@ -164,21 +161,21 @@ def can_crawl(domain, url):
 	Store site data in database in table crawldb.site, if it doesn't exist yet, and return its id 
 """
 def get_site_id(domain):
-	with lock:
-		try:
-			cur.execute("SELECT * FROM crawldb.site WHERE domain = %s", (domain,))
-			rows = cur.fetchall()
-			if rows:
-				site_id = rows[0][0]
-			if not rows:
-				robots_sitemap_data = get_robots_sitemap_data(domain)
-				cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s) RETURNING id", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
-				site_id = cur.fetchone()[0]
-				frontier.add_site(domain)
-				load_sitemap_urls_to_pages(domain)
-			return site_id
-		except Exception as e:
-			print(e)
+	#with lock:
+	try:
+		cur.execute("SELECT * FROM crawldb.site WHERE domain = %s", (domain,))
+		rows = cur.fetchall()
+		if rows:
+			site_id = rows[0][0]
+		if not rows:
+			robots_sitemap_data = get_robots_sitemap_data(domain)
+			cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s) RETURNING id", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
+			site_id = cur.fetchone()[0]
+			frontier.add_site(domain)
+			load_sitemap_urls_to_pages(domain)
+		return site_id
+	except Exception as e:
+		print(e)
 
 
 """ 
@@ -273,7 +270,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 	links = []
 	page = BeautifulSoup(page_content, 'html.parser')
 	# TODO pokliči funkcijo is_duplicate_page(page_url, page)
-	if is_duplicate_page(page_url, page) == True:
+	#if is_duplicate_page(page_url, page) == True:
 		# If True, označi page_content = duplicate & return
 
 	imgs = page.findAll('img')
@@ -354,7 +351,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 						# TODO preveri, če domena od i že obstaja v tabeli site, potem si shrani id od tega sitea. ELSE naredi vnos v tabelo site z to domeno od i-ja. in pokliči get_site_id(domena_od_ija).
 						if is_link_in_site_page(domain_found_link) == True:
 							site_id = get_site_id(domain_found_link)
-						else:
+						#else:
 							# Hmmm a se je funkcija get_site_id spremenila tko da tale if else že not preveri?
 						# TODO ustvari vnos v tabelo page za ta i. pug_page_in_db()
 						frontier.add_page(i, domain_found_link)
@@ -454,59 +451,42 @@ def is_link_in_table_page(url):
 	return True
 
 
-def worker_loop():
-	print("Starting worker loop. ")
+def worker_loop(worker_id):
+	id = threading.local
+	id = str(worker_id)
+	print(id + " Starting worker loop. ")
 	while(frontier.has_page()):
-		url = frontier.get_page
-		print("Working on: " + url)
-		print("Finished working on: " + url)
+		page = frontier.get_page()
+		print(id + " Working on: " + page.url)
+		get_images_links(page.url)
+		print(id + " Finished working on: " + page.url)
 
-	print("No more pages in frontier, shutting worker down. ")
+	print(id + " No more pages in frontier, shutting worker down. ")
 
 
-print("here1")
 # base logika - najprej reset baze, pol dodamo domene in zacetne page na teh domenah v bazo, pol pa nardimo threadpool
 reset_database()
 
-print("here2")
-
-for i in range(4):
+for i in range(1, 4):
 	print(i)
 	site_id = get_site_id(domains[i]) # ustvarimo nov site za trenutno domeno
 
 	# mormo se dodat frontpage te domene v tabelo page in frontier
-	print('a')
 	page_object = {}
-	print('b')
 	page_object['site_id'] = site_id
-	print('c')
 	page_object['url'] = urls[i]
-	print('d')
 	put_empty_page_in_db(page_object)
-	print('e')
 	frontier.add_site(domains[i])
-	print('f')
 	frontier.add_page(urls[i], domains[i])
-	print('g')
+
+# za single thread nej se spodnjo vrstico odkomentira, za multithread pa spodnji block
+#worker_loop(0)
+
 
 with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
 	print(f"\n ... executing workers ...\n")
 	for i in range(6):
-		executor.submit(worker_loop)
-	'''	
-    for domain in domains:
-        executor.submit(put_site_in_db, domain)
-        put_site_in_db(domain)
-        can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
-        executor.submit(get_images_links, 'https://'+domain)
-	'''
+		executor.submit(worker_loop, i)
 
-'''
-for domain in domains:
-        #executor.submit(put_site_in_db, domain)
-        #executor.submit(get_images_links, 'https://'+domain)
-        try:
-        	get_images_links('https://'+domain)
-        except Exception as e:
-        	print("ERROR: ", e)
-'''
+
+
