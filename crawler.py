@@ -247,6 +247,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 	# TODO pokliči funkcijo is_duplicate_page(page_url, page)
 	if is_duplicate_page(page_url, page) == True:
 		# If True, označi page_content = duplicate & return
+		
 	imgs = page.findAll('img')
 	#print("IMGS len: ", len(imgs))
 	for img in imgs:

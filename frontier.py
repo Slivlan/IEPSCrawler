@@ -6,6 +6,7 @@ class Frontier:
     def __init__(self):
         self.sites = queue.Queue()
         self.sitesDictionary = {}
+        self.numOfPages = 0
 
     '''
     Doda domain v dictionary sites. Ce ze obstaja, vrne false, drugace vrne true.
@@ -32,6 +33,7 @@ class Frontier:
             return False
         p = Page(url, self.sitesDictionary[domain])
         self.sitesDictionary[domain].add_page(p)
+        self.numOfPages += 1
         return True
 
 
@@ -39,11 +41,19 @@ class Frontier:
     Vrne url naslova, ki je naslednji na listi za pogledat. Ce ni nobenga sita, za katerga nam ni treba cakat, se thread tuki ustavi, dokler ne potece dovolj casa
     '''
     def get_page(self):
-        s = self.sites.get()
-        s.halt_till_allowed(5)
-        s.accessed()
-        self.sites.put(s)
-        return s.pages.get()
+        while(True):
+            s = self.sites.get()
+            self.sites.put(s)
+            if(s.has_page()):
+                s.halt_till_allowed(5)
+                s.accessed()
+                break
+            
+        self.numOfPages -= 1
+        return s.get_page()
+
+    def has_page(self):
+        return self.numOfPages > 0
 
 class Site:
     
@@ -55,6 +65,7 @@ class Site:
         self.domain = dom
         self.pages = queue.Queue()
         self.last_accessed = time.time()
+        self.numOfPages = 0
 
     def accessed(self):
         self.last_accessed = time.time()
@@ -71,6 +82,14 @@ class Site:
 
     def add_page(self, p):
         self.pages.put(p)
+        self.numOfPages += 1
+
+    def get_page(self):
+        self.numOfPages -= 1
+        return self.pages.get()
+
+    def has_page(self):
+        return self.numOfPages > 0
 
 class Page:
     #site #pointer na Site object
@@ -90,12 +109,43 @@ f.add_page("www.site.si/123", "www.site.si")
 f.add_page("www.site.si/456", "www.site.si")
 f.add_page("www.site2.si/123", "www.site2.si")
 f.add_page("www.site2.si/456", "www.site2.si")
+f.add_page("www.site2.si/7", "www.site2.si")
+
+print(f.has_page())
 page = f.get_page()
 print(page.url)
+print(f.has_page())
 page = f.get_page()
 print(page.url)
+print(f.has_page())
 page = f.get_page()
 print(page.url)
+print(f.has_page())
 page = f.get_page()
 print(page.url)
+print(f.has_page())
+page = f.get_page()
+print(page.url)
+print(f.has_page())
+page = f.get_page()
+print(page.url)
+print(f.has_page())
+page = f.get_page()
+print(page.url)
+print(f.has_page())
+page = f.get_page()
+print(page.url)
+print(f.has_page())
+page = f.get_page()
+print(page.url)
+print(f.has_page())
+page = f.get_page()
+print(page.url)
+print(f.has_page())
+page = f.get_page()
+print(page.url)
+print(f.has_page())
+page = f.get_page()
+print(page.url)
+print(f.has_page())
 '''
