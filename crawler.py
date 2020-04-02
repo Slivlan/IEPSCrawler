@@ -87,6 +87,22 @@ def html_md5(html):
 	return str(hasher.hexdigest())
 
 """
+	Insert images to db
+"""
+def insert_imgs_to_db(list_of_images):
+	with lock:
+		for image in list_of_images:
+			cur.execute("INSERT INTO crawldb.image(page_id, filename, content_type, accessed_time) VALUES (?, ?, ?, NOW());", (image['page_id'], image['filename'], image['content_type']))
+
+"""
+	Insert page_data to db and return id
+"""
+def insert_page_data_to_db(page_data):
+	with lock:
+		cur.execute("INSERT INTO crawldb.page_data (page_id, data_type_code) VALUES (?, ?) RETURNING id;", (page_data['page_id'], page_data['data_type_code'], ))
+		return cur.fetchone()[0]
+
+"""
 	Is there a duplicate of page
 """
 def is_duplicate_page(url, html):
