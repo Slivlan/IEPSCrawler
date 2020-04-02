@@ -47,7 +47,7 @@ cur = conn.cursor()
 lock = threading.Lock()
 
 def reset_database():
-	#cur.execute("DELETE FROM crawldb.site *")
+	cur.execute("DELETE FROM crawldb.site *")
 	cur.execute("DELETE FROM crawldb.page *")
 	cur.execute("DELETE FROM crawldb.image *")
 	cur.execute("DELETE FROM crawldb.page_data *")
@@ -165,12 +165,12 @@ def can_crawl(domain, url):
 def get_site_id(domain):
 	with lock:
 		try:
-			robots_sitemap_data = get_robots_sitemap_data(domain)
 			cur.execute("SELECT * FROM crawldb.site WHERE domain = %s", (domain,))
 			rows = cur.fetchall()
 			if rows:
 				site_id = rows[0][0]
 			if not rows:
+				robots_sitemap_data = get_robots_sitemap_data(domain)
 				cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s) RETURNING id", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
 				site_id = cur.fetchone()[0]
 				frontier.add_site(domain)
@@ -207,15 +207,13 @@ def put_page_in_db(page_object):
 	Get robots and sitemap data as tuple (robots_data, sitemap_data) if exists
 """
 def get_robots_sitemap_data(domain):
-	url = "http://{}/robots.txt".format(domain)
-	rp = urllib.robotparser.RobotFileParser(url=url)
-	rp.read()
-
 	# crawl_delay_sec_t = rp.crawl_delay(user_agent)
 	# if crawl_delay_sec_t:
 	#     crawl_delay_sec = crawl_delay_sec_t
-
 	try:
+		url = "http://{}/robots.txt".format(domain)
+		rp = urllib.robotparser.RobotFileParser(url=url)
+		rp.read()
 		request = urllib.request.Request(url, headers={'User-Agent': user_agent})
 		with urllib.request.urlopen(request) as response:
 			robots_data = response.read().decode("utf-8")
