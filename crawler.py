@@ -52,8 +52,8 @@ def reset_database():
 	cur.execute("DELETE FROM crawldb.page *")
 	cur.execute("DELETE FROM crawldb.image *")
 	cur.execute("DELETE FROM crawldb.page_data *")
-	cur.execute("DELETE FROM crawldb.data_type *")
-	cur.execute("DELETE FROM crawldb.page_type *")
+	#cur.execute("DELETE FROM crawldb.data_type *")
+	#cur.execute("DELETE FROM crawldb.page_type *")
 	cur.execute("DELETE FROM crawldb.link *")
 	cur.execute("DELETE FROM Frontier *")
 	cur.execute("INSERT INTO Frontier (next_page_id) VALUES (1)")
@@ -397,7 +397,7 @@ def get_images_links(page_url):
 				#print("FOUND inappropriate: ", href)
 				continue
 			if href.startswith('www'):
-				href = 'http://{}'.format(url).strip()
+				href = 'http://{}'.format(page_url).strip()
 			if href.startswith('/'):
 				href = '{}{}'.format(page_url, href).strip()
 		links.append(href)
@@ -413,7 +413,7 @@ def get_images_links(page_url):
 					#print("FOUND inappropriate: ", link)
 					continue
 				if link.startswith('www'):
-					link = 'http://{}'.format(url).strip()
+					link = 'http://{}'.format(page_url).strip()
 				if link.startswith('/'):
 					link = '{}{}'.format(page_url, link).strip()
 			links.append(link)
