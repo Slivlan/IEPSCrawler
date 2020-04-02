@@ -84,6 +84,27 @@ def html_md5(html):
 	return str(hasher.hexdigest())
 
 """
+	Insert images to db
+"""
+def insert_imgs_to_db(list_of_images):
+	with lock:
+		try:
+			for image in list_of_images:
+				cur.execute("INSERT INTO crawldb.image (page_id, filename, content_type, accessed_time) VALUES (%s, %s, %s, NOW());", (image['page_id'], image['filename'], image['content_type']))
+		except Exception as e:
+			print(e)
+"""
+	Insert page_data to db and return id
+"""
+def insert_page_data_to_db(page_data_list):
+	with lock:
+		try:
+			for page_data in page_data_list:
+				cur.execute('INSERT INTO crawldb.page_data (page_id, data_type_code) VALUES (%s, %s) RETURNING id;', (page_data['page_id'], page_data['data_type_code']))
+		except Exception as e:
+			print(e)
+
+"""
 	Is there a duplicate of page
 """
 def is_duplicate_page(url, html):
@@ -177,7 +198,6 @@ def get_site_id(domain):
 	except Exception as e:
 		print(e)
 
-
 """ 
 	Store page data in database in table crawldb.page, and return its id
 """
@@ -203,6 +223,20 @@ def put_page_in_db(page_object):
 		except Exception as e:
 			print(e)
 
+"""
+	Get page id
+"""
+def get_page_id(url):
+	with lock:
+		try:
+			cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
+			rows = cur.fetchall()
+			if rows:
+				page_id = rows[0][0]
+			return page_id
+		except Exception as e:
+			print(e)	
+
 '''
 	Creates empty page table in database. page_object must have parameters site_id and url. 
 '''
@@ -218,6 +252,33 @@ def put_empty_page_in_db(page_object):
 		except Exception as e:
 			print(e)
 
+"""
+	Update page entry
+"""
+def update_page_entry(page_id, page_object):
+	site_id = page_object['site_id']
+	page_type_code = page_object['page_type_code']
+	url = page_object['url']
+	html_content = page_object['html_content']
+	http_status_code = page_object['http_status_code']
+	html_content_md5 = page_object['html_content_md5']
+	accessed_time = page_object['accessed_time']
+	with lock:
+		try:
+			cur.execute('UPDATE crawldb.page SET (site_id = %s, page_type_code = %s, url = %s, html_content = %s, http_status_code = %s, html_content_md5 = %s, accessed_time = %s) WHERE (page_id = %s)', (site_id, page_type_code, url, html_content, http_status_code, html_content_md5, accessed_time, page_id))
+		except Exception as e:
+			print(e)
+"""
+	Insert link to db
+"""
+def put_link_in_db(link_object):
+	from_page = link_object['from']
+	to_page = link_object['to']
+	with lock:
+		try:
+			cur.execute('INSERT INTO crawldb.link (from_page, to_page) VALUES (%s, %s)', (from_page, to_page))
+		except Exception as e:
+			print(e)
 """
 	Get robots and sitemap data as tuple (robots_data, sitemap_data) if exists
 """
@@ -254,7 +315,7 @@ def get_robots_sitemap_data(domain):
 """
 	Detect images and next links
 """
-def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš za pomoč (je treba samo na začetku te funkcije? ali tudi na začetku get_content_type?)
+def get_images_links(page_url):
 	chrome_options = webdriver.ChromeOptions()
 	chrome_options.add_argument('headless')
 	driver = webdriver.Chrome(chrome_options = chrome_options)
@@ -264,16 +325,52 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 	print("Page url: ", page_url)
 	print("Domain: ", domain)
 
+	id_trenutnega_sitea = get_site_id(domain)
 	id_trenutnega_pagea = get_page_id(page_url)
 	page_content = driver.page_source
+	page_cnt = BeautifulSoup(page_content, 'html.parser')
+	# Create page object to be inserted to db table page
+	page_type = get_content_type(page_url)#['page_type_code']
+	page = {}
+	if (page_type['page_type_code'] == 'html'):
+		page = {
+			'site_id' : id_trenutnega_sitea,
+			'page_type_code' : 'html',
+			'url' : page_url,
+			'html_content' : page_cnt,
+			'http_status_code' : page_type['status_code'],
+			'html_content_md5' : html_md5(page_cnt),
+			'accessed_time' : datetime.datetime.now() # .strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
+		}
+	elif (page_type['page_type_code'] != 'html'):
+		page = {
+			'site_id' : id_trenutnega_sitea,
+			'page_type_code' : 'binary',
+			'url' : page_url,
+			'html_content' : None,
+			'http_status_code' : page_type['status_code'],
+			'html_content_md5' : None,
+			'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
+		}
+	if (is_duplicate_page(page_url, page_cnt) == True):
+		page = {
+			'site_id' : id_trenutnega_sitea,
+			'page_type_code' : 'duplicate',
+			'url' : page_url,
+			'html_content' : page_cnt,
+			'http_status_code' : page_type['status_code'],
+			'html_content_md5' : html_md5(page_cnt),
+			'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
+		}
+		# TODO funkcija za update page-a? Ali kaj?
+		update_page_entry(id_trenutnega_pagea, page)
+	print("PAGE")
+	print(page['page_type_code'], page['url'], page['http_status_code'], page['accessed_time'])
+
 	images = []
 	links = []
-	page = BeautifulSoup(page_content, 'html.parser')
-	# TODO pokliči funkcijo is_duplicate_page(page_url, page)
-	#if is_duplicate_page(page_url, page) == True:
-		# If True, označi page_content = duplicate & return
 
-	imgs = page.findAll('img')
+	imgs = page_cnt.findAll('img')
 	#print("IMGS len: ", len(imgs))
 	for img in imgs:
 		#print("IMG ", img)
@@ -283,7 +380,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 			#print("OH YES.")
 			continue
 		images.append(src)
-	hyperlinks = page.findAll('a')
+	hyperlinks = page_cnt.findAll('a')
 	#print("HYPERLINKS: ", hyperlinks)
 	#print("HYPERLINKS len: ", len(hyperlinks))
 	for hyperlink in hyperlinks:
@@ -302,12 +399,12 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 				#print("FOUND inappropriate: ", href)
 				continue
 			if href.startswith('www'):
-				href = 'http://{}'.format(url).strip()
+				href = 'http://{}'.format(page_url).strip()
 			if href.startswith('/'):
 				href = '{}{}'.format(page_url, href).strip()
 		links.append(href)
 	# Links hidden in scripts
-	scripts = page.findAll('script')
+	scripts = page_cnt.findAll('script')
 	for script in scripts:
 		links_from_script = re.findall(r'(http://|https://)([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?',
 							   script.text)
@@ -318,7 +415,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 					#print("FOUND inappropriate: ", link)
 					continue
 				if link.startswith('www'):
-					link = 'http://{}'.format(url).strip()
+					link = 'http://{}'.format(page_url).strip()
 				if link.startswith('/'):
 					link = '{}{}'.format(page_url, link).strip()
 			links.append(link)
@@ -330,10 +427,6 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 		links = list(myset)
 		for i in links:
 			if (allowed_domain in i) and (page_url+'/' != i):
-				link_to_db.append({ # TODO poberi id od trenutne strani in 'to' strani
-					'from': page_url+'/', # Tuki je id_trenutnega_pagea
-					'to': i # Kako pa dobit tole? Še ne obstaja v bazi, ne?
-				})
 				pg_tp = get_content_type(i)
 				# print("PG_TP")
 				# print(pg_tp)
@@ -348,13 +441,13 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 					t = urlparse(i).netloc
 					domain_found_link  = '.'.join(t.split('.')[-2:])
 					if (can_crawl(domain_found_link, i)):
-						# TODO preveri, če domena od i že obstaja v tabeli site, potem si shrani id od tega sitea. ELSE naredi vnos v tabelo site z to domeno od i-ja. in pokliči get_site_id(domena_od_ija).
-						if is_link_in_site_page(domain_found_link) == True:
-							site_id = get_site_id(domain_found_link)
-						#else:
-							# Hmmm a se je funkcija get_site_id spremenila tko da tale if else že not preveri?
-						# TODO ustvari vnos v tabelo page za ta i. pug_page_in_db()
+						id_site = get_site_id(domain_found_link) # Če ni notr, lahk ful cajta traja.
+						id_page = put_page_in_db(page)
 						frontier.add_page(i, domain_found_link)
+				link_to_db.append({ # TODO poberi id od trenutne strani in 'to' strani
+					'from': id_trenutnega_pagea, # Tuki je id_trenutnega_pagea
+					'to': get_page_id(i) # Kako pa dobit tole? Še ne obstaja v bazi, ne?
+				})
 	# print("link_to_db: ")
 	# print(link_to_db)
 	# print("len(link_to_db): ", len(link_to_db))
@@ -366,6 +459,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 		for i in images:
 			filename = i.split('/')[-1].split('.')[0]
 			image_to_db.append({
+				'page_id' : id_trenutnega_pagea,
 				'filename' : filename,
 				'content_type' : 'img',
 				'data' : None,
@@ -374,26 +468,6 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 	#print("image_to_db: ")
 	#print(image_to_db)
 	#print("len(image_to_db): ", len(image_to_db))
-	page_type = get_content_type(page_url)#['page_type_code']
-	page = {}
-	if (page_type['page_type_code'] == 'html'): # TODO inside of this if has to be check if it is html or binary or duplicate (create function is_duplicate?)
-		page = {
-			'page_type_code' : 'html', # TODO change later to html/binary/duplicate
-			'url' : page_url,
-			'html_content' : page_content,
-			'http_status_code' : page_type['status_code'],
-			'accessed_time' : datetime.datetime.now().strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
-		}
-	elif (page_type['page_type_code'] != 'html'):
-		page = {
-			'page_type_code' : 'binary', # TODO change later to html/binary/duplicate
-			'url' : page_url,
-			'html_content' : page_content,
-			'http_status_code' : page_type['status_code'],
-			'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
-		}
-	print("PAGE")
-	print(page['page_type_code'], page['url'], page['http_status_code'], page['accessed_time'])
 	print("PAGE_DATA:")
 	print(page_data)
 	driver.close()
@@ -401,12 +475,14 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 	print("-----KONECKONECKONEC-------")
 	#return (link_to_db, image_to_db, page, page_data)
 	# TODO UPDATE trenutni page (že more obstajat, ga samo updateaš - use razn url-ja pa id-ja) page putam notr.
-
+	update_page_entry(id_trenutnega_pagea, page)
 	# TODO INSERT link_to_db v tabelo link
-
+	for li in link_to_db:
+		put_link_in_db(li)
 	# TODO INSERT image_to_db v tabelo image
-
+	insert_imgs_to_db(image_to_db)
 	# TODO INSERT page_data v tabelo page_data
+	insert_page_data_to_db(page_data)
 
 """
 	Get page content type
