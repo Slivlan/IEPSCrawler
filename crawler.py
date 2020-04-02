@@ -241,14 +241,37 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 
 	id_trenutnega_pagea = get_page_id(page_url)
 	page_content = driver.page_source
+	# Create page object to be inserted to db table page
+	page_type = get_content_type(page_url)#['page_type_code']
+	page = {}
+	if (page_type['page_type_code'] == 'html'): # TODO inside of this if has to be check if it is html or binary or duplicate (create function is_duplicate?)
+		page = {
+			'page_type_code' : 'html', # TODO change later to html/binary/duplicate
+			'url' : page_url,
+			'html_content' : page_content,
+			'http_status_code' : page_type['status_code'],
+			'accessed_time' : datetime.datetime.now().strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
+		}
+	elif (page_type['page_type_code'] != 'html'):
+		page = {
+			'page_type_code' : 'binary', # TODO change later to html/binary/duplicate
+			'url' : page_url,
+			'html_content' : page_content,
+			'http_status_code' : page_type['status_code'],
+			'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
+		}
+	print("PAGE")
+	print(page['page_type_code'], page['url'], page['http_status_code'], page['accessed_time'])
+
 	images = []
 	links = []
-	page = BeautifulSoup(page_content, 'html.parser')
-	# TODO pokliči funkcijo is_duplicate_page(page_url, page)
-	if is_duplicate_page(page_url, page) == True:
-		# If True, označi page_content = duplicate & return
-		
-	imgs = page.findAll('img')
+	page_cnt = BeautifulSoup(page_content, 'html.parser')
+	# TODO pokliči funkcijo is_duplicate_page(page_url, page_cnt)
+	if is_duplicate_page(page_url, page_cnt) == True:
+		# If True, označi page_content = duplicate & return - kaj s tem returnom ? Na dnu funkcije mamo delo z bazo, a je prou da se pol tut ne zapiše v bazo...?
+		pass
+
+	imgs = page_cnt.findAll('img')
 	#print("IMGS len: ", len(imgs))
 	for img in imgs:
 		#print("IMG ", img)
@@ -258,7 +281,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 			#print("OH YES.")
 			continue
 		images.append(src)
-	hyperlinks = page.findAll('a')
+	hyperlinks = page_cnt.findAll('a')
 	#print("HYPERLINKS: ", hyperlinks)
 	#print("HYPERLINKS len: ", len(hyperlinks))
 	for hyperlink in hyperlinks:
@@ -282,7 +305,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 				href = '{}{}'.format(page_url, href).strip()
 		links.append(href)
 	# Links hidden in scripts
-	scripts = page.findAll('script')
+	scripts = page_cnt.findAll('script')
 	for script in scripts:
 		links_from_script = re.findall(r'(http://|https://)([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?',
 							   script.text)
@@ -305,10 +328,6 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 		links = list(myset)
 		for i in links:
 			if (allowed_domain in i) and (page_url+'/' != i):
-				link_to_db.append({ # TODO poberi id od trenutne strani in 'to' strani
-					'from': page_url+'/', # Tuki je id_trenutnega_pagea
-					'to': i # Kako pa dobit tole? Še ne obstaja v bazi, ne?
-				})
 				pg_tp = get_content_type(i)
 				# print("PG_TP")
 				# print(pg_tp)
@@ -323,13 +342,14 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 					t = urlparse(i).netloc
 					domain_found_link  = '.'.join(t.split('.')[-2:])
 					if (can_crawl(domain_found_link, i)):
-						# TODO preveri, če domena od i že obstaja v tabeli site, potem si shrani id od tega sitea. ELSE naredi vnos v tabelo site z to domeno od i-ja. in pokliči get_site_id(domena_od_ija).
-						if is_link_in_site_page(domain_found_link) == True:
-							site_id = get_site_id(domain_found_link)
-						else:
-							# Hmmm a se je funkcija get_site_id spremenila tko da tale if else že not preveri?
+						id_site = get_site_id(domain_found_link) # Če ni notr, lahk ful cajta traja.
 						# TODO ustvari vnos v tabelo page za ta i. pug_page_in_db()
+						put_page_in_db(page)
 						frontier.add_page(i, domain_found_link)
+				link_to_db.append({ # TODO poberi id od trenutne strani in 'to' strani
+					'from': id_trenutnega_pagea, # Tuki je id_trenutnega_pagea
+					'to': get_page_id(i) # Kako pa dobit tole? Še ne obstaja v bazi, ne?
+				})
 	# print("link_to_db: ")
 	# print(link_to_db)
 	# print("len(link_to_db): ", len(link_to_db))
@@ -349,26 +369,6 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 	#print("image_to_db: ")
 	#print(image_to_db)
 	#print("len(image_to_db): ", len(image_to_db))
-	page_type = get_content_type(page_url)#['page_type_code']
-	page = {}
-	if (page_type['page_type_code'] == 'html'): # TODO inside of this if has to be check if it is html or binary or duplicate (create function is_duplicate?)
-		page = {
-			'page_type_code' : 'html', # TODO change later to html/binary/duplicate
-			'url' : page_url,
-			'html_content' : page_content,
-			'http_status_code' : page_type['status_code'],
-			'accessed_time' : datetime.datetime.now().strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
-		}
-	elif (page_type['page_type_code'] != 'html'):
-		page = {
-			'page_type_code' : 'binary', # TODO change later to html/binary/duplicate
-			'url' : page_url,
-			'html_content' : page_content,
-			'http_status_code' : page_type['status_code'],
-			'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
-		}
-	print("PAGE")
-	print(page['page_type_code'], page['url'], page['http_status_code'], page['accessed_time'])
 	print("PAGE_DATA:")
 	print(page_data)
 	driver.close()
