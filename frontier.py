@@ -4,7 +4,7 @@ import queue
 class Frontier:
     
     def __init__(self):
-        self.sites = queue.SimpleQueue()
+        self.sites = queue.Queue()
         self.sitesDictionary = {}
 
     '''
