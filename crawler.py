@@ -1,6 +1,7 @@
 import urllib
 from selenium import webdriver
 from urllib import robotparser
+from urllib.parse import urlparse
 import psycopg2
 import threading
 import concurrent.futures
@@ -9,7 +10,12 @@ import re
 import requests
 from operator import itemgetter
 import datetime
+from frontier import Frontier
+import datetime
 import hashlib
+
+# Frontier object for frontier interaction
+frontier = Frontier()
 
 domains = ["gov.si", "evem.gov.si", "e-uprava.gov.si", "e-prostor.gov.si"]
 #domains = ['www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip']
@@ -162,6 +168,25 @@ def put_site_in_db(domain):
 		except Exception as e:
 			print(e)
 
+""" 
+	Store page data in database in table crawldb.page
+"""
+def put_page_in_db(page_object):
+	site_id = page_object['site_id']
+	page_type_code = page_object['page_type_code']
+	url = page_object['url']
+	html_content = page_object['html_content']
+	http_status_code = page_object['http_status_code']
+	accessed_time = page_object['accessed_time']
+	with lock: # TODO a gre with lock pred tem zgori al je tko ok, da je po tem?
+		try:
+			cur.execute('SELECT url FROM crawldb.page WHERE url = %s', (url,))
+			rows = cur.fetchall()
+			if not rows:
+				cur.execute('INSERT INTO crawldb.page (site_id, page_type_code, url, html_content, http_status_code, accessed_time) VALUES (%s, %s, %s, %s, %s)', (site_id, page_type_code, url, html_content, http_status_code, accessed_time))
+
+		except Exception as e:
+			print(e)
 """
 	Get robots and sitemap data as tuple (robots_data, sitemap_data) if exists
 """
@@ -260,6 +285,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 			links.append(link)
 	link_to_db = []
 	page_data = []
+	#link_to_frontier = []
 	if len(links) > 0:
 		myset = set(links) # remove duplicates
 		links = list(myset)
@@ -270,17 +296,25 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 					'to': i
 				})
 				pg_tp = get_content_type(i)
-				print("PG_TP")
-				print(pg_tp)
+				# print("PG_TP")
+				# print(pg_tp)
 				if (pg_tp['page_type_code'] != 'html') and (pg_tp['page_type_code'] in type_codes.values()):
 					page_data.append({
 						'data_type_code' : pg_tp['page_type_code'],
 						'data' : None
 					})
 				# if found link is not yet in table.page, add it to frontier (frontier.py, add_page()). # TODO function to connect to db and check if link (url) is already in table.page
-	print("link_to_db: ")
-	print(link_to_db)
-	print("len(link_link): ", len(link_to_db))
+				if is_link_in_table_page(i) == False:
+					#link_to_frontier.append(i) # TODO dodam samo link do te strani, ni potrebno dat oboje (in "from" in "to"), je tko?
+					t = urlparse(i).netloc
+					domain  = '.'.join(t.split('.')[-2:])
+					frontier.add_page(i, domain) # TODO kaj je domain kaj pa url
+	# print("link_to_db: ")
+	# print(link_to_db)
+	# print("len(link_to_db): ", len(link_to_db))
+	# print("link_to_frontier:", )
+	# print(link_to_frontier)
+	# print("len(link_to_frontier): ", len(link_to_frontier))
 	image_to_db = []
 	if len(images) > 0:
 		for i in images:
@@ -289,7 +323,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 				'filename' : filename,
 				'content_type' : 'img',
 				'data' : None,
-				'accessed_time' : datetime.datetime.now().strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
+				'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
 			})
 	#print("image_to_db: ")
 	#print(image_to_db)
@@ -312,7 +346,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 			'url' : page_url,
 			'html_content' : page_content,
 			'http_status_code' : page_type['status_code'],
-			'accessed_time' : datetime.datetime.now().strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
+			'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
 		}
 	print("PAGE")
 	print(page['page_type_code'], page['url'], page['http_status_code'], page['accessed_time'])
@@ -353,6 +387,18 @@ def get_content_type(url_link):
 	#print(page_type)
 	return page_type
 
+"""
+	Check if link is already in db table page. Returns True if it is. Returns False if it is not. Used to add/not add found link to frontier.
+"""
+def is_link_in_table_page(url):
+	cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
+	rows = cur.fetchall()
+	#print(rows)
+	if not rows:
+		return False
+	print("URL ", url, " is already in.")
+	return True
+
 # with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
 #     print(f"\n ... executing workers ...\n")
 #     reset_database()
@@ -361,10 +407,10 @@ def get_content_type(url_link):
         #put_site_in_db(domain)
         #can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
         #executor.submit(get_images_links, 'https://'+domain)
-# for domain in domains:
-#         #executor.submit(put_site_in_db, domain)
-#         #executor.submit(get_images_links, 'https://'+domain)
-#         try:
-#         	get_images_links('https://'+domain)
-#         except Exception as e:
-#         	print("ERROR: ", e)
+for domain in domains:
+        #executor.submit(put_site_in_db, domain)
+        #executor.submit(get_images_links, 'https://'+domain)
+        try:
+        	get_images_links('https://'+domain)
+        except Exception as e:
+        	print("ERROR: ", e)
