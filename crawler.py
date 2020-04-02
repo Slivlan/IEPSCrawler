@@ -238,16 +238,15 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 	domain  = '.'.join(t.split('.')[-2:])
 	print("Page url: ", page_url)
 	print("Domain: ", domain)
-	# TODO Put domain into db table site if it isn't there yet
 
-	# TODO Put domain in frontier using add_site (without checking if it's already in frontier?)
-
+	id_trenutnega_pagea = get_page_id(page_url)
 	page_content = driver.page_source
 	images = []
 	links = []
 	page = BeautifulSoup(page_content, 'html.parser')
 	# TODO pokliči funkcijo is_duplicate_page(page_url, page)
-	# If True, označi page_content = duplicate & return
+	if is_duplicate_page(page_url, page) == True:
+		# If True, označi page_content = duplicate & return
 	imgs = page.findAll('img')
 	#print("IMGS len: ", len(imgs))
 	for img in imgs:
@@ -306,15 +305,15 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 		for i in links:
 			if (allowed_domain in i) and (page_url+'/' != i):
 				link_to_db.append({ # TODO poberi id od trenutne strani in 'to' strani
-					'from': page_url+'/',
-					'to': i
+					'from': page_url+'/', # Tuki je id_trenutnega_pagea
+					'to': i # Kako pa dobit tole? Še ne obstaja v bazi, ne?
 				})
 				pg_tp = get_content_type(i)
 				# print("PG_TP")
 				# print(pg_tp)
 				if (pg_tp['page_type_code'] != 'html') and (pg_tp['page_type_code'] in type_codes.values()):
 					page_data.append({
-						'page_id' : None # TODO kako dobit id?
+						'page_id' : id_trenutnega_pagea,
 						'data_type_code' : pg_tp['page_type_code'],
 						'data' : None
 					})
@@ -324,8 +323,11 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 					domain_found_link  = '.'.join(t.split('.')[-2:])
 					if (can_crawl(domain_found_link, i)):
 						# TODO preveri, če domena od i že obstaja v tabeli site, potem si shrani id od tega sitea. ELSE naredi vnos v tabelo site z to domeno od i-ja. in pokliči get_site_id(domena_od_ija).
-
-						# TODO ustvari vnos v tabelo page za ta i.
+						if is_link_in_site_page(domain_found_link) == True:
+							site_id = get_site_id(domain_found_link)
+						else:
+							# Hmmm a se je funkcija get_site_id spremenila tko da tale if else že not preveri?
+						# TODO ustvari vnos v tabelo page za ta i. pug_page_in_db()
 						frontier.add_page(i, domain_found_link)
 	# print("link_to_db: ")
 	# print(link_to_db)
@@ -356,8 +358,6 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 			'http_status_code' : page_type['status_code'],
 			'accessed_time' : datetime.datetime.now().strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
 		}
-		# TODO tle je vse neki narobe. zgori: page = link_url, to kar je trenutno. page_type_code = get_content_type(page_url)..
-		# page_data pa for links (vsi "to" linki, ki si jih zgori naštel), vzameš content type, če niso html (= other, pptx, docx,...) grejo v page_data.append({kar je treba})
 	elif (page_type['page_type_code'] != 'html'):
 		page = {
 			'page_type_code' : 'binary', # TODO change later to html/binary/duplicate
@@ -374,7 +374,6 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 	driver.quit()
 	print("-----KONECKONECKONEC-------")
 	#return (link_to_db, image_to_db, page, page_data)
-	#id_trenutnega_pagea = # TODO funkcija ki returna row iz tabele page na podlagi url-ja
 	# TODO UPDATE trenutni page (že more obstajat, ga samo updateaš - use razn url-ja pa id-ja) page putam notr.
 
 	# TODO INSERT link_to_db v tabelo link
@@ -417,14 +416,51 @@ def get_content_type(url_link):
 	Check if link is already in db table page. Returns True if it is. Returns False if it is not. Used to add/not add found link to frontier.
 """
 def is_link_in_table_page(url):
-	cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
-	rows = cur.fetchall()
-	#print(rows)
-	if not rows:
-		return False
-	print("URL ", url, " is already in.")
-	return True
+	with lock:
+		try:
+			cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
+			rows = cur.fetchall()
+			#print(rows)
+			if not rows:
+				return False
+			print("URL ", url, " is already in table page.")
+			return True
+		except Exception as e:
+			print("ERROR IN is_link_in_table_page")
 
+"""
+	Check if link is already in db site page.
+"""
+def is_link_in_site_page(url):
+	with lock:
+		try:
+			cur.execute("SELECT * FROM crawldb.site WHERE url = %s", (url,))
+			rows = cur.fetchall()
+			#print(rows)
+			if not rows:
+				return False
+			print("URL ", url, " is already in table site.")
+			return True
+		except Exception as e:
+			print("ERROR IN is_link_in_site_page")
+
+"""
+	Get id of current page by its url
+"""
+def get_page_id(url):
+	page_id = None
+	with lock:
+		try:
+			cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
+			rows = cur.fetchall()
+			#print(rows)
+			if not rows:
+				return False
+			page_id = rows[0][0]
+			print("URL ", url, " page_id is.", page_id)
+			return page_id
+		except Exception as e:
+			print("ERROR IN is_link_in_site_page")
 # with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
 #     print(f"\n ... executing workers ...\n")
 #     reset_database()
