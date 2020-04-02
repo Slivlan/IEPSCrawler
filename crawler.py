@@ -158,9 +158,9 @@ def can_crawl(domain, url):
 			return True
 
 """
-	Store site data in database in table crawldb.site
+	Store site data in database in table crawldb.site. Create site if it doesn't exist yet.
 """
-def put_site_in_db(domain):
+def get_site_id(domain):
 	with lock:
 		try:
 			robots_sitemap_data = get_robots_sitemap_data(domain)
@@ -168,11 +168,12 @@ def put_site_in_db(domain):
 			rows = cur.fetchall()
 			if not rows:
 				cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s)", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
-
-			frontier.add_site(domain)
-
+				frontier.add_site(domain)
+				load_sitemap_urls_to_pages(domain)
+			# TODO return created entry site_id
 		except Exception as e:
 			print(e)
+
 
 """ 
 	Store page data in database in table crawldb.page
@@ -190,7 +191,7 @@ def put_page_in_db(page_object):
 			rows = cur.fetchall()
 			if not rows:
 				cur.execute('INSERT INTO crawldb.page (site_id, page_type_code, url, html_content, http_status_code, accessed_time) VALUES (%s, %s, %s, %s, %s)', (site_id, page_type_code, url, html_content, http_status_code, accessed_time))
-
+			# TODO return created entry page_id
 		except Exception as e:
 			print(e)
 """
@@ -235,11 +236,20 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 	chrome_options.add_argument('headless')
 	driver = webdriver.Chrome(chrome_options = chrome_options)
 	driver.get(page_url)
-	print("Domain: ", page_url)
+	t = urlparse(page_url).netloc
+	domain  = '.'.join(t.split('.')[-2:])
+	print("Page url: ", page_url)
+	print("Domain: ", domain)
+	# TODO Put domain into db table site if it isn't there yet
+
+	# TODO Put domain in frontier using add_site (without checking if it's already in frontier?)
+
 	page_content = driver.page_source
 	images = []
 	links = []
 	page = BeautifulSoup(page_content, 'html.parser')
+	# TODO pokliči funkcijo is_duplicate_page(page_url, page)
+	# If True, označi page_content = duplicate & return
 	imgs = page.findAll('img')
 	#print("IMGS len: ", len(imgs))
 	for img in imgs:
@@ -297,7 +307,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 		links = list(myset)
 		for i in links:
 			if (allowed_domain in i) and (page_url+'/' != i):
-				link_to_db.append({
+				link_to_db.append({ # TODO poberi id od trenutne strani in 'to' strani
 					'from': page_url+'/',
 					'to': i
 				})
@@ -306,15 +316,19 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 				# print(pg_tp)
 				if (pg_tp['page_type_code'] != 'html') and (pg_tp['page_type_code'] in type_codes.values()):
 					page_data.append({
+						'page_id' : None # TODO kako dobit id?
 						'data_type_code' : pg_tp['page_type_code'],
 						'data' : None
 					})
 				# if found link is not yet in table.page, add it to frontier (frontier.py, add_page()).
-				if is_link_in_table_page(i) == False:
-					#link_to_frontier.append(i) # TODO dodam samo link do te strani, ni potrebno dat oboje (in "from" in "to"), je tko?
+				if (is_link_in_table_page(i) == False):
 					t = urlparse(i).netloc
-					domain  = '.'.join(t.split('.')[-2:])
-					frontier.add_page(i, domain)
+					domain_found_link  = '.'.join(t.split('.')[-2:])
+					if (can_crawl(domain_found_link, i)):
+						# TODO preveri, če domena od i že obstaja v tabeli site, potem si shrani id od tega sitea. ELSE naredi vnos v tabelo site z to domeno od i-ja. in pokliči get_site_id(domena_od_ija).
+
+						# TODO ustvari vnos v tabelo page za ta i.
+						frontier.add_page(i, domain_found_link)
 	# print("link_to_db: ")
 	# print(link_to_db)
 	# print("len(link_to_db): ", len(link_to_db))
@@ -361,7 +375,15 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 	driver.close()
 	driver.quit()
 	print("-----KONECKONECKONEC-------")
-	return (link_to_db, image_to_db, page, page_data)
+	#return (link_to_db, image_to_db, page, page_data)
+	#id_trenutnega_pagea = # TODO funkcija ki returna row iz tabele page na podlagi url-ja
+	# TODO UPDATE trenutni page (že more obstajat, ga samo updateaš - use razn url-ja pa id-ja) page putam notr.
+
+	# TODO INSERT link_to_db v tabelo link
+
+	# TODO INSERT image_to_db v tabelo image
+
+	# TODO INSERT page_data v tabelo page_data
 
 """
 	Get page content type
