@@ -18,6 +18,7 @@ import hashlib
 frontier = Frontier()
 
 domains = ["gov.si", "evem.gov.si", "e-uprava.gov.si", "e-prostor.gov.si"]
+urls = ["https://www.gov.si", "http://evem.gov.si/evem/drzavljani/zacetna.evem", "https://e-uprava.gov.si/", "https://www.e-prostor.gov.si/"]
 #domains = ['www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip']
 allowed_domain = '.gov.si'
 type_codes = {
@@ -47,7 +48,7 @@ cur = conn.cursor()
 lock = threading.Lock()
 
 def reset_database():
-	#cur.execute("DELETE FROM crawldb.site *")
+	cur.execute("DELETE FROM crawldb.site *")
 	cur.execute("DELETE FROM crawldb.page *")
 	cur.execute("DELETE FROM crawldb.image *")
 	cur.execute("DELETE FROM crawldb.page_data *")
@@ -56,6 +57,10 @@ def reset_database():
 	cur.execute("DELETE FROM crawldb.link *")
 	cur.execute("DELETE FROM Frontier *")
 	cur.execute("INSERT INTO Frontier (next_page_id) VALUES (1)")
+	cur.execute("ALTER SEQUENCE	crawldb.image_id_seq RESTART WITH 1;")
+	cur.execute("ALTER SEQUENCE	crawldb.page_data_id_seq RESTART WITH 1;")
+	cur.execute("ALTER SEQUENCE	crawldb.page_id_seq RESTART WITH 1;")
+	cur.execute("ALTER SEQUENCE	crawldb.site_id_seq RESTART WITH 1;")
 
 def get_next_page_id():
 	with lock:
@@ -156,25 +161,28 @@ def can_crawl(domain, url):
 			return True
 
 """
-	Store site data in database in table crawldb.site. Create site if it doesn't exist yet.
+	Store site data in database in table crawldb.site, if it doesn't exist yet, and return its id 
 """
 def get_site_id(domain):
 	with lock:
 		try:
-			robots_sitemap_data = get_robots_sitemap_data(domain)
-			cur.execute("SELECT domain FROM crawldb.site WHERE domain = %s", (domain,))
+			cur.execute("SELECT * FROM crawldb.site WHERE domain = %s", (domain,))
 			rows = cur.fetchall()
+			if rows:
+				site_id = rows[0][0]
 			if not rows:
-				cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s)", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
+				robots_sitemap_data = get_robots_sitemap_data(domain)
+				cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s) RETURNING id", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
+				site_id = cur.fetchone()[0]
 				frontier.add_site(domain)
 				load_sitemap_urls_to_pages(domain)
-			# TODO return created entry site_id
+			return site_id
 		except Exception as e:
 			print(e)
 
 
 """ 
-	Store page data in database in table crawldb.page
+	Store page data in database in table crawldb.page, and return its id
 """
 def put_page_in_db(page_object):
 	site_id = page_object['site_id']
@@ -182,29 +190,49 @@ def put_page_in_db(page_object):
 	url = page_object['url']
 	html_content = page_object['html_content']
 	http_status_code = page_object['http_status_code']
-	accessed_time = page_object['accessed_time']
+	html_content_md5 = page_object['html_content_md5']
+	#accessed_time = page_object['accessed_time']
+	with lock:
+		try:
+			cur.execute('SELECT * FROM crawldb.page WHERE url = %s', (url,))
+			rows = cur.fetchall()
+			if rows:
+				page_id = rows[0][0]
+			if not rows:
+				#cur.execute('INSERT INTO crawldb.page (site_id, page_type_code, url, html_content, http_status_code, accessed_time) VALUES (%s, %s, %s, %s, %s) RETURNING id', (site_id, page_type_code, url, html_content, http_status_code, accessed_time))
+				cur.execute('INSERT INTO crawldb.page (site_id, page_type_code, url, html_content, http_status_code, accessed_time, html_content_md5) VALUES (%s, %s, %s, %s, %s, NOW(), %s) RETURNING id', (site_id, page_type_code, url, html_content, http_status_code, html_content_md5))
+				page_id = cur.fetchone()[0]
+			return page_id
+		except Exception as e:
+			print(e)
+
+'''
+	Creates empty page table in database. page_object must have parameters site_id and url. 
+'''
+def put_empty_page_in_db(page_object):
+	site_id = page_object['site_id']
+	url = page_object['url']
 	with lock: # TODO a gre with lock pred tem zgori al je tko ok, da je po tem?
 		try:
 			cur.execute('SELECT url FROM crawldb.page WHERE url = %s', (url,))
 			rows = cur.fetchall()
 			if not rows:
-				cur.execute('INSERT INTO crawldb.page (site_id, page_type_code, url, html_content, http_status_code, accessed_time) VALUES (%s, %s, %s, %s, %s)', (site_id, page_type_code, url, html_content, http_status_code, accessed_time))
-			# TODO return created entry page_id
+				cur.execute('INSERT INTO crawldb.page (site_id, url) VALUES (%s, %s)', (site_id, url))
 		except Exception as e:
 			print(e)
+
 """
 	Get robots and sitemap data as tuple (robots_data, sitemap_data) if exists
 """
 def get_robots_sitemap_data(domain):
-	url = "http://{}/robots.txt".format(domain)
-	rp = urllib.robotparser.RobotFileParser(url=url)
-	rp.read()
-
 	# crawl_delay_sec_t = rp.crawl_delay(user_agent)
 	# if crawl_delay_sec_t:
 	#     crawl_delay_sec = crawl_delay_sec_t
 
 	try:
+		url = "http://{}/robots.txt".format(domain)
+		rp = urllib.robotparser.RobotFileParser(url=url)
+		rp.read()
 		request = urllib.request.Request(url, headers={'User-Agent': user_agent})
 		with urllib.request.urlopen(request) as response:
 			robots_data = response.read().decode("utf-8")
@@ -417,59 +445,63 @@ def get_content_type(url_link):
 	Check if link is already in db table page. Returns True if it is. Returns False if it is not. Used to add/not add found link to frontier.
 """
 def is_link_in_table_page(url):
-	with lock:
-		try:
-			cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
-			rows = cur.fetchall()
-			#print(rows)
-			if not rows:
-				return False
-			print("URL ", url, " is already in table page.")
-			return True
-		except Exception as e:
-			print("ERROR IN is_link_in_table_page")
+	cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
+	rows = cur.fetchall()
+	#print(rows)
+	if not rows:
+		return False
+	print("URL ", url, " is already in.")
+	return True
 
-"""
-	Check if link is already in db site page.
-"""
-def is_link_in_site_page(url):
-	with lock:
-		try:
-			cur.execute("SELECT * FROM crawldb.site WHERE url = %s", (url,))
-			rows = cur.fetchall()
-			#print(rows)
-			if not rows:
-				return False
-			print("URL ", url, " is already in table site.")
-			return True
-		except Exception as e:
-			print("ERROR IN is_link_in_site_page")
 
-"""
-	Get id of current page by its url
-"""
-def get_page_id(url):
-	page_id = None
-	with lock:
-		try:
-			cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
-			rows = cur.fetchall()
-			#print(rows)
-			if not rows:
-				return False
-			page_id = rows[0][0]
-			print("URL ", url, " page_id is.", page_id)
-			return page_id
-		except Exception as e:
-			print("ERROR IN is_link_in_site_page")
-# with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
-#     print(f"\n ... executing workers ...\n")
-#     reset_database()
-#     for domain in domains:
-#         executor.submit(put_site_in_db, domain)
-        #put_site_in_db(domain)
-        #can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
-        #executor.submit(get_images_links, 'https://'+domain)
+def worker_loop():
+	print("Starting worker loop. ")
+	while(frontier.has_page()):
+		url = frontier.get_page
+		print("Working on: " + url)
+		print("Finished working on: " + url)
+
+	print("No more pages in frontier, shutting worker down. ")
+
+
+print("here1")
+# base logika - najprej reset baze, pol dodamo domene in zacetne page na teh domenah v bazo, pol pa nardimo threadpool
+reset_database()
+
+print("here2")
+
+for i in range(4):
+	print(i)
+	site_id = get_site_id(domains[i]) # ustvarimo nov site za trenutno domeno
+
+	# mormo se dodat frontpage te domene v tabelo page in frontier
+	print('a')
+	page_object = {}
+	print('b')
+	page_object['site_id'] = site_id
+	print('c')
+	page_object['url'] = urls[i]
+	print('d')
+	put_empty_page_in_db(page_object)
+	print('e')
+	frontier.add_site(domains[i])
+	print('f')
+	frontier.add_page(urls[i], domains[i])
+	print('g')
+
+with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+	print(f"\n ... executing workers ...\n")
+	for i in range(6):
+		executor.submit(worker_loop)
+	'''	
+    for domain in domains:
+        executor.submit(put_site_in_db, domain)
+        put_site_in_db(domain)
+        can_crawl(domain, "https://www.gov.si/podrocja/druzina-otroci-in-zakonska-zveza/")
+        executor.submit(get_images_links, 'https://'+domain)
+	'''
+
+'''
 for domain in domains:
         #executor.submit(put_site_in_db, domain)
         #executor.submit(get_images_links, 'https://'+domain)
@@ -477,3 +509,4 @@ for domain in domains:
         	get_images_links('https://'+domain)
         except Exception as e:
         	print("ERROR: ", e)
+'''
