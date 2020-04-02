@@ -227,6 +227,7 @@ def get_robots_sitemap_data(domain):
 	# crawl_delay_sec_t = rp.crawl_delay(user_agent)
 	# if crawl_delay_sec_t:
 	#     crawl_delay_sec = crawl_delay_sec_t
+	
 	try:
 		url = "http://{}/robots.txt".format(domain)
 		rp = urllib.robotparser.RobotFileParser(url=url)
