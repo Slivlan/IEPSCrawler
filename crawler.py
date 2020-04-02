@@ -129,12 +129,16 @@ def load_sitemap_urls_to_pages(domain):
 							if not rows:
 								cur.execute("INSERT INTO crawldb.page(site_id, url) VALUES (%s, %s);", (site_id, url.text))
 
+							frontier.add_page(url.text, domain)
+
 			if urlset:
 				for url in parsed_sitemap.find_all("url"):
 					cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url.text,))
 					rows = cur.fetchall()
 					if not rows:
 						cur.execute("INSERT INTO crawldb.page(site_id, url) VALUES (%s, %s);", (site_id, url.text))
+
+					frontier.add_page(url.text, domain)
 
 		except Exception as e:
 			print(e)
@@ -164,6 +168,8 @@ def put_site_in_db(domain):
 			rows = cur.fetchall()
 			if not rows:
 				cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s)", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
+
+			frontier.add_site(domain)
 
 		except Exception as e:
 			print(e)
