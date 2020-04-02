@@ -256,7 +256,7 @@ def get_robots_sitemap_data(domain):
 """
 	Detect images and next links
 """
-def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš za pomoč (je treba samo na začetku te funkcije? ali tudi na začetku get_content_type?)
+def get_images_links(page_url):
 	chrome_options = webdriver.ChromeOptions()
 	chrome_options.add_argument('headless')
 	driver = webdriver.Chrome(chrome_options = chrome_options)
@@ -268,35 +268,43 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 
 	id_trenutnega_pagea = get_page_id(page_url)
 	page_content = driver.page_source
+	page_cnt = BeautifulSoup(page_content, 'html.parser')
 	# Create page object to be inserted to db table page
 	page_type = get_content_type(page_url)#['page_type_code']
 	page = {}
-	if (page_type['page_type_code'] == 'html'): # TODO inside of this if has to be check if it is html or binary or duplicate (create function is_duplicate?)
+	if (page_type['page_type_code'] == 'html'):
 		page = {
-			'page_type_code' : 'html', # TODO change later to html/binary/duplicate
+			'page_type_code' : 'html',
 			'url' : page_url,
-			'html_content' : page_content,
+			'html_content' : page_cnt,
 			'http_status_code' : page_type['status_code'],
-			'accessed_time' : datetime.datetime.now().strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
+			'html_content_md5' : html_md5(page_cnt)
+			'accessed_time' : datetime.datetime.now() # .strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
 		}
 	elif (page_type['page_type_code'] != 'html'):
 		page = {
-			'page_type_code' : 'binary', # TODO change later to html/binary/duplicate
+			'page_type_code' : 'binary',
 			'url' : page_url,
-			'html_content' : page_content,
+			'html_content' : None,
 			'http_status_code' : page_type['status_code'],
+			'html_content_md5' : None,
 			'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
 		}
+	if (is_duplicate_page(page_url, page_cnt) == True):
+		page = {
+			'page_type_code' : 'duplicate',
+			'url' : page_url,
+			'html_content' : page_cnt,
+			'http_status_code' : page_type['status_code'],
+			'html_content_md5' : html_md5(page_cnt),
+			'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
+		}
+		# TODO funkcija za update page-a? Ali kaj? Nismo zihr ker ne vemo kdaj se ta funkcija (get-images_links) kliče.
 	print("PAGE")
 	print(page['page_type_code'], page['url'], page['http_status_code'], page['accessed_time'])
 
 	images = []
 	links = []
-	page_cnt = BeautifulSoup(page_content, 'html.parser')
-	# TODO pokliči funkcijo is_duplicate_page(page_url, page_cnt)
-	if is_duplicate_page(page_url, page_cnt) == True:
-		# If True, označi page_content = duplicate & return - kaj s tem returnom ? Na dnu funkcije mamo delo z bazo, a je prou da se pol tut ne zapiše v bazo...?
-		pass
 
 	imgs = page_cnt.findAll('img')
 	#print("IMGS len: ", len(imgs))
@@ -371,7 +379,7 @@ def get_images_links(page_url): # TODO dodaj with lock. Ne znam točno, upraš z
 					if (can_crawl(domain_found_link, i)):
 						id_site = get_site_id(domain_found_link) # Če ni notr, lahk ful cajta traja.
 						# TODO ustvari vnos v tabelo page za ta i. pug_page_in_db()
-						put_page_in_db(page)
+						id_page = put_page_in_db(page)
 						frontier.add_page(i, domain_found_link)
 				link_to_db.append({ # TODO poberi id od trenutne strani in 'to' strani
 					'from': id_trenutnega_pagea, # Tuki je id_trenutnega_pagea
