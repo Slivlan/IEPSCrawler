@@ -13,9 +13,17 @@ import datetime
 from frontier import Frontier
 import datetime
 import hashlib
+from colorama import Style
+from colorama import Fore
+from colorama import init
+import os
+
+init()
 
 # Frontier object for frontier interaction
 frontier = Frontier()
+
+#os.system('color')
 
 domains = ["gov.si", "evem.gov.si", "e-uprava.gov.si", "e-prostor.gov.si"]
 urls = ["https://www.gov.si", "http://evem.gov.si/evem/drzavljani/zacetna.evem", "https://e-uprava.gov.si/", "https://www.e-prostor.gov.si/"]
@@ -108,61 +116,65 @@ def insert_page_data_to_db(page_data_list):
 	Is there a duplicate of page
 """
 def is_duplicate_page(url, html):
-	with lock:
-		try:
-			cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
+	
+	try:
+		cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
+		rows = cur.fetchall()
+		if len(rows) > 1:
+			return True
+		else:
+			cur.execute("SELECT * FROM crawldb.page WHERE html_content_md5 = %s", (html_md5(html),))
 			rows = cur.fetchall()
 			if rows:
 				return True
-			else:
-				cur.execute("SELECT * FROM crawldb.page WHERE html_content_md5 = %s", (html_md5(html),))
-				rows = cur.fetchall()
-				if rows:
-					return True
-			return False
+		return False
 
-		except Exception as e:
-			print(e)
-			return False
+	except Exception as e:
+		print(e)
+		return False
 
 """
 	Get URLs from site map for domain
 """
 def load_sitemap_urls_to_pages(domain):
-	with lock:
-		try:
-			cur.execute("SELECT id, domain, sitemap_content FROM crawldb.site WHERE domain = %s", (domain,))
-			rows = cur.fetchall()
-			site_id = rows[0][0]
+	
+	try:
+		print("Adding sitemap to frontier from domain: " + domain)
+		cur.execute("SELECT id, domain, sitemap_content FROM crawldb.site WHERE domain = %s", (domain,))
+		rows = cur.fetchall()
+		site_id = rows[0][0]
 
-			parsed_sitemap = BeautifulSoup(rows[0][2], features="html.parser")
-			sitemapindex = parsed_sitemap.find("sitemapindex")
-			urlset = parsed_sitemap.find("urlset")
+		parsed_sitemap = BeautifulSoup(rows[0][2], features="html.parser")
+		sitemapindex = parsed_sitemap.find("sitemapindex")
+		urlset = parsed_sitemap.find("urlset")
 
-			if sitemapindex:
-				for loc in parsed_sitemap.find_all("loc"):
-					request = urllib.request.Request(loc.text, headers={'User-Agent': user_agent})
-					with urllib.request.urlopen(request) as response:
-						loc_data = response.read().decode("utf-8")
-						parsed_sitemap_loc = BeautifulSoup(loc_data, features="html.parser")
-						urls_loc = parsed_sitemap_loc.find_all("loc")
-						for url in urls_loc:
-							cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url.text,))
-							rows = cur.fetchall()
-							if not rows:
-								cur.execute("INSERT INTO crawldb.page(site_id, url) VALUES (%s, %s);", (site_id, url.text))
-								frontier.add_page(url.text, domain)
-								
-			if urlset:
-				for url in parsed_sitemap.find_all("url"):
-					cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url.text,))
-					rows = cur.fetchall()
-					if not rows:
-						cur.execute("INSERT INTO crawldb.page(site_id, url) VALUES (%s, %s);", (site_id, url.text))
-						frontier.add_page(url.text, domain)
+		if sitemapindex:
+			for loc in parsed_sitemap.find_all("loc"):
+				request = urllib.request.Request(loc.text, headers={'User-Agent': user_agent})
+				with urllib.request.urlopen(request) as response:
+					loc_data = response.read().decode("utf-8")
+					parsed_sitemap_loc = BeautifulSoup(loc_data, features="html.parser")
+					urls_loc = parsed_sitemap_loc.find_all("loc")
+					for url in urls_loc:
+						#with lock:
+						cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url.text,))
+						rows = cur.fetchall()
+						if not rows:
+							cur.execute("INSERT INTO crawldb.page(site_id, url) VALUES (%s, %s);", (site_id, url.text))
+							frontier.add_page(url.text, domain)
+							
+							
+		if urlset:
+			for url in parsed_sitemap.find_all("url"):
+				#with lock:
+				cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url.text,))
+				rows = cur.fetchall()
+				if not rows:
+					cur.execute("INSERT INTO crawldb.page(site_id, url) VALUES (%s, %s);", (site_id, url.text))
+					frontier.add_page(url.text, domain)
 
-		except Exception as e:
-			print(e)
+	except Exception as e:
+		print(e)
 
 """
 	Is url allowed to be crawled?
@@ -182,21 +194,21 @@ def can_crawl(domain, url):
 	Store site data in database in table crawldb.site, if it doesn't exist yet, and return its id 
 """
 def get_site_id(domain):
-	#with lock:
-	try:
-		cur.execute("SELECT * FROM crawldb.site WHERE domain = %s", (domain,))
-		rows = cur.fetchall()
-		if rows:
-			site_id = rows[0][0]
-		if not rows:
-			robots_sitemap_data = get_robots_sitemap_data(domain)
-			cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s) RETURNING id", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
-			site_id = cur.fetchone()[0]
-			frontier.add_site(domain)
-			load_sitemap_urls_to_pages(domain)
-		return site_id
-	except Exception as e:
-		print(e)
+	with lock:
+		try:
+			cur.execute("SELECT * FROM crawldb.site WHERE domain = %s", (domain,))
+			rows = cur.fetchall()
+			if rows:
+				site_id = rows[0][0]
+			if not rows:
+				robots_sitemap_data = get_robots_sitemap_data(domain)
+				cur.execute("INSERT INTO crawldb.site (domain, robots_content, sitemap_content) VALUES (%s, %s, %s) RETURNING id", (domain, robots_sitemap_data[0], robots_sitemap_data[1]))
+				site_id = cur.fetchone()[0]
+				frontier.add_site(domain)
+				#load_sitemap_urls_to_pages(domain)
+			return site_id
+		except Exception as e:
+			print(e)
 
 """ 
 	Store page data in database in table crawldb.page, and return its id
@@ -315,15 +327,15 @@ def get_robots_sitemap_data(domain):
 """
 	Detect images and next links
 """
-def get_images_links(page_url):
+def get_images_links(page_url, worker_id):
 	chrome_options = webdriver.ChromeOptions()
 	chrome_options.add_argument('headless')
 	driver = webdriver.Chrome(chrome_options = chrome_options)
 	driver.get(page_url)
 	domain = urlparse(page_url).netloc # Če boš tole spodi s subdomainom odkomentiral, zamenjaj v tej vrstici domain z t
 	#domain  = '.'.join(t.split('.')[-2:]) # Če želimo imeti samo main domain, ne pa tudi subdomain, npr. za www.e-vem.gov.si kot domain upoštevamo samo gov.si
-	print("Page url: ", page_url)
-	print("Domain: ", domain)
+	print(worker_id + " Page url: ", page_url)
+	print(worker_id + " Domain: ", domain)
 
 	id_trenutnega_sitea = get_site_id(domain)
 	id_trenutnega_pagea = get_page_id(page_url)
@@ -526,17 +538,26 @@ def is_link_in_table_page(url):
 	return True
 
 
-def worker_loop(worker_id):
-	id = threading.local
-	id = str(worker_id)
-	print(id + " Starting worker loop. ")
-	while(frontier.has_page()):
-		page = frontier.get_page()
-		print(id + " Working on: " + page.url)
-		get_images_links(page.url)
-		print(id + " Finished working on: " + page.url)
+def worker_loop(id):
+	worker_id = threading.local
+	worker_id = str(id)
+	cur = threading.local
+	cur = conn.cursor()
+	print(worker_id + " Starting worker loop. ")
+	while(True):
+		if(frontier.has_page()):
+			page = frontier.get_page()
+			print(f"{Fore.GREEN}{worker_id} Working on: {page.url}{Style.RESET_ALL}")
+			get_images_links(page.url, worker_id)
+			print(f"{Fore.GREEN}{worker_id} Finished working on: {page.url}{Style.RESET_ALL}")
+		else:
+			print(f"{Fore.RED}{worker_id} Frontier has no more pages, waiting for 30 seconds. {Style.RESET_ALL}")
+			time.sleep(30)
+			if(not frontier.has_page()):
+				break
 
-	print(id + " No more pages in frontier, shutting worker down. ")
+	
+	print(f"{Fore.RED}{worker_id} No more pages in frontier, shutting worker down. {Style.RESET_ALL}")
 
 
 # base logika - najprej reset baze, pol dodamo domene in zacetne page na teh domenah v bazo, pol pa nardimo threadpool
@@ -555,13 +576,13 @@ for i in range(1, 4):
 	frontier.add_page(urls[i], domains[i])
 
 # za single thread nej se spodnjo vrstico odkomentira, za multithread pa spodnji block
-#worker_loop(0)
+worker_loop(0)
 
-
+'''
 with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
 	print(f"\n ... executing workers ...\n")
 	for i in range(6):
 		executor.submit(worker_loop, i)
-
+'''
 
 

@@ -23,7 +23,7 @@ class Frontier:
         s = Site(domain)
         self.sites.put(s)
         self.sitesDictionary[domain] = s
-
+        print("Added site to frontier: " + domain)
         return True
 
 
@@ -39,6 +39,7 @@ class Frontier:
         p = Page(url, self.sitesDictionary[domain])
         self.sitesDictionary[domain].add_page(p)
         self.numOfPages += 1
+        print("Added page to frontier: " + url)
         return True
 
 
