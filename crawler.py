@@ -275,7 +275,14 @@ def update_page_entry(page_id, page_object):
 	accessed_time = page_object['accessed_time']
 	with lock:
 		try:
-			cur.execute('UPDATE crawldb.page SET (site_id = %s, page_type_code = %s, url = %s, html_content = %s, http_status_code = %s, html_content_md5 = %s, accessed_time = %s) WHERE (page_id = %s)', (site_id, page_type_code, url, html_content, http_status_code, html_content_md5, accessed_time, page_id))
+			#cur.execute('UPDATE crawldb.page SET (site_id = %s, page_type_code = %s, url = %s, html_content = %s, http_status_code = %s, html_content_md5 = %s, accessed_time = %s) WHERE (page_id = %s)', (site_id, page_type_code, url, html_content, http_status_code, html_content_md5, accessed_time, page_id))
+			cur.execute('UPDATE crawldb.page SET site_id = %s WHERE id = %s', (site_id, page_id))
+			cur.execute('UPDATE crawldb.page SET page_type_code = %s WHERE id = %s', (page_type_code, page_id))
+			cur.execute('UPDATE crawldb.page SET url = %s WHERE id = %s', (url, page_id))
+			cur.execute('UPDATE crawldb.page SET html_content = %s WHERE id = %s', (html_content, page_id))
+			cur.execute('UPDATE crawldb.page SET http_status_code = %s WHERE id = %s', (http_status_code, page_id))
+			cur.execute('UPDATE crawldb.page SET html_content_md5 = %s WHERE id = %s', (html_content_md5, page_id))
+			cur.execute('UPDATE crawldb.page SET accessed_time = %s WHERE id = %s', (accessed_time, page_id))
 		except Exception as e:
 			print(e)
 """
@@ -508,7 +515,8 @@ def get_content_type(url_link):
 		res = requests.get(url_link)
 		#print("res: ", res)
 	except Exception as e:
-		print("Requests error: ", e)
+		#print("Requests error: ", e)
+		print(f"{Fore.RED} Requests error. (get_content_type)\n {e} {Style.RESET_ALL}")
 	if res != '':
 		try:
 			status_code = res.status_code
@@ -517,7 +525,8 @@ def get_content_type(url_link):
 				content_type = content_type.split(';')[0]
 			#print("CONTENT TYPE: ", content_type)
 		except Exception as e:
-			print("Content type error: ", e)
+			#print("Content type error: ", e)
+			print(f"{Fore.RED} Content type error. (get_content_type)\n {e} {Style.RESET_ALL}")
 
 		# doc, docx, pdf, ppt, pptx
 		if content_type in type_codes:
