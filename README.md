@@ -5,26 +5,18 @@ Crawler je projekt, ki smo ga razvili Luka, Mihael in Lovro za prvo domačo nalo
 
 ## Namestitev
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
+Uporabi [pip](https://pip.pypa.io/en/stable/) za namestitev.
 
 ```bash
-pip install foobar
+pip install psycopg2
+pip install selenium
+pip install tldextract
+pip install beautifulsoup4
+pip install requests
 ```
 
-## Usage
+## Uporaba
 
 ```python
-import foobar
 
-foobar.pluralize('word') # returns 'words'
-foobar.pluralize('goose') # returns 'geese'
-foobar.singularize('phenomena') # returns 'phenomenon'
 ```
-
-## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
-Please make sure to update tests as appropriate.
-
-## License
-[MIT](https://choosealicense.com/licenses/mit/)

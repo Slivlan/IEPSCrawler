@@ -18,6 +18,8 @@ from colorama import Fore
 from colorama import init
 import os
 from tldextract import extract
+import time
+import traceback
 
 init()
 
@@ -563,7 +565,13 @@ def worker_loop(id):
 		if(frontier.has_page()):
 			page = frontier.get_page()
 			print(f"{Fore.GREEN}{worker_id} Working on: {page.url}{Style.RESET_ALL}")
-			get_images_links(page.url, worker_id)
+			try:
+				get_images_links(page.url, worker_id)
+			except Exception as e:
+				track = traceback.format_exc()
+				print(f"{Fore.RED}{track}{Style.RESET_ALL}")
+
+
 			print(f"{Fore.GREEN}{worker_id} Finished working on: {page.url}{Style.RESET_ALL}")
 		else:
 			print(f"{Fore.RED}{worker_id} Frontier has no more pages, waiting for 30 seconds. {Style.RESET_ALL}")
@@ -591,13 +599,14 @@ for i in range(1, 4):
 	frontier.add_page(urls[i], domains[i])
 
 # za single thread nej se spodnjo vrstico odkomentira, za multithread pa spodnji block
-worker_loop(0)
+#worker_loop(0)
 
-'''
-with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+
+with concurrent.futures.ThreadPoolExecutor(max_workers=25) as executor:
 	print(f"\n ... executing workers ...\n")
-	for i in range(6):
+	for i in range(25):
 		executor.submit(worker_loop, i)
-'''
+		time.sleep(10)
+
 
 
