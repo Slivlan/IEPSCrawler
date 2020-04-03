@@ -20,8 +20,11 @@ import os
 from tldextract import extract
 import time
 import traceback
+import sys
 
 init()
+
+
 
 # Frontier object for frontier interaction
 frontier = Frontier()
@@ -558,10 +561,15 @@ for i in range(1, 4):
 # za single thread nej se spodnjo vrstico odkomentira, za multithread pa spodnji block
 #worker_loop(0)
 
+args = sys.argv
+if len(args) >= 1:
+	worker_count = int(args[1])
+else:
+	worker_count = 16
 
-with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
 	print(f"\n ... executing workers ...\n")
-	for i in range(50):
+	for i in range(worker_count):
 		executor.submit(worker_loop, i)
 		time.sleep(10)
 
