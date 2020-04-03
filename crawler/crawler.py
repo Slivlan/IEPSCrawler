@@ -1,22 +1,18 @@
 import urllib
 from selenium import webdriver
 from urllib import robotparser
-from urllib.parse import urlparse
 import psycopg2
 import threading
 import concurrent.futures
 from bs4 import BeautifulSoup
 import re
 import requests
-from operator import itemgetter
-import datetime
-from frontier import Frontier
+from crawler.crawler import Frontier
 import datetime
 import hashlib
 from colorama import Style
 from colorama import Fore
 from colorama import init
-import os
 from tldextract import extract
 import time
 import traceback
