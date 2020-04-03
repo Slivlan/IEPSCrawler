@@ -7,7 +7,7 @@ import concurrent.futures
 from bs4 import BeautifulSoup
 import re
 import requests
-from crawler.crawler import Frontier
+from frontier import Frontier
 import datetime
 import hashlib
 from colorama import Style
@@ -558,7 +558,7 @@ for i in range(1, 4):
 #worker_loop(0)
 
 args = sys.argv
-if len(args) >= 1:
+if len(args) >= 2:
 	worker_count = int(args[1])
 else:
 	worker_count = 16
