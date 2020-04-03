@@ -7,7 +7,7 @@ import concurrent.futures
 from bs4 import BeautifulSoup
 import re
 import requests
-from crawler.crawler import Frontier
+from crawler.frontier import Frontier
 import datetime
 import hashlib
 from colorama import Style
