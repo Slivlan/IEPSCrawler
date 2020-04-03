@@ -31,7 +31,7 @@ frontier = Frontier()
 domains = ["gov.si", "evem.gov.si", "e-uprava.gov.si", "e-prostor.gov.si"]
 urls = ["https://www.gov.si", "http://evem.gov.si/evem/drzavljani/zacetna.evem", "https://e-uprava.gov.si/", "https://www.e-prostor.gov.si/"]
 #domains = ['www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip']
-allowed_domain = '.gov.si'
+allowed_domain = 'gov.si'
 type_codes = {
 	'application/msword' : 'doc',
 	'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'docx',
@@ -120,21 +120,22 @@ def insert_page_data_to_db(page_data_list):
 """
 def is_duplicate_page(url, html):
 	
-	try:
-		cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
-		rows = cur.fetchall()
-		if len(rows) > 1:
-			return True
-		else:
-			cur.execute("SELECT * FROM crawldb.page WHERE html_content_md5 = %s", (html_md5(html),))
+	with lock:
+		try:
+			cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
 			rows = cur.fetchall()
-			if rows:
+			if len(rows) > 1:
 				return True
-		return False
+			else:
+				cur.execute("SELECT * FROM crawldb.page WHERE html_content_md5 = %s", (html_md5(html),))
+				rows = cur.fetchall()
+				if rows:
+					return True
+			return False
 
-	except Exception as e:
-		print(e)
-		return False
+		except Exception as e:
+			print(e)
+			return False
 
 """
 	Get URLs from site map for domain
@@ -259,10 +260,11 @@ def put_empty_page_in_db(page_object):
 	site_id = page_object['site_id']
 	url = page_object['url']
 	#with lock: # TODO a gre with lock pred tem zgori al je tko ok, da je po tem?
-	try:
-		cur.execute('INSERT INTO crawldb.page (site_id, url) VALUES (%s, %s)', (site_id, url))
-	except Exception as e:
-		print(e)
+	with lock:
+		try:
+			cur.execute('INSERT INTO crawldb.page (site_id, url) VALUES (%s, %s)', (site_id, url))
+		except Exception as e:
+			print(e)
 
 """
 	Update page entry
@@ -387,6 +389,7 @@ def get_images_links(page_url, worker_id):
 			'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
 		}
 		update_page_entry(id_trenutnega_pagea, page)
+		return
 	print("PAGE")
 	print(page['page_type_code'], page['url'], page['http_status_code'], page['accessed_time'])
 
@@ -449,7 +452,9 @@ def get_images_links(page_url, worker_id):
 		myset = set(links) # remove duplicates
 		links = list(myset)
 		for i in links:
-			if (allowed_domain in i) and (page_url+'/' != i):
+			ext_1 = extract(i) # prints abc, hostname, com
+			domain_found_link = '.'.join(ext_1)
+			if (allowed_domain in domain_found_link) and (page_url+'/' != i):
 				pg_tp = get_content_type(i)
 				# print("PG_TP")
 				# print(pg_tp)
@@ -463,8 +468,7 @@ def get_images_links(page_url, worker_id):
 				if (is_link_in_table_page(i) == False):
 					# t = urlparse(i).netloc					
 					# domain_found_link  = '.'.join(t.split('.')[-2:])
-					ext_1 = extract(i) # prints abc, hostname, com
-					domain_found_link = '.'.join(ext_1)
+					
 					if (can_crawl(domain_found_link, i)):
 						id_site = get_site_id(domain_found_link) # Če ni notr, lahk ful cajta traja.
 						id_page = put_empty_page_in_db({'site_id':id_site, 'url':i})
@@ -545,13 +549,17 @@ def get_content_type(url_link):
 	Check if link is already in db table page. Returns True if it is. Returns False if it is not. Used to add/not add found link to frontier.
 """
 def is_link_in_table_page(url):
-	cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
-	rows = cur.fetchall()
-	#print(rows)
-	if not rows:
-		return False
-	print("URL ", url, " is already in.")
-	return True
+	with lock:
+		cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
+		try:
+			rows = cur.fetchall()
+			#print(rows)
+			if rows:
+				print("URL ", url, " is already in.")
+				return True
+			return False
+		except Exception as e:
+			return False
 
 
 def worker_loop(id):
@@ -601,9 +609,9 @@ for i in range(1, 4):
 #worker_loop(0)
 
 
-with concurrent.futures.ThreadPoolExecutor(max_workers=25) as executor:
+with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
 	print(f"\n ... executing workers ...\n")
-	for i in range(25):
+	for i in range(50):
 		executor.submit(worker_loop, i)
 		time.sleep(10)
 
