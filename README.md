@@ -26,8 +26,11 @@ Poženi crawler z ukazom
 ```python
 cd crawler
 python crawler.py <int_stevilo_threadov>
-primer za 6 threadov:
-  python crawler.py 6
+```
+Primer za 6 threadov:
+```python
+ cd crawler
+ python crawler.py 6
 ```
 
 ## Vizualizacija
