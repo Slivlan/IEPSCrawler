@@ -336,7 +336,11 @@ def get_images_links(page_url, worker_id):
 	chrome_options = webdriver.ChromeOptions()
 	chrome_options.add_argument('headless')
 	driver = webdriver.Chrome(chrome_options = chrome_options)
-	driver.get(page_url)
+	try:
+		driver.get(page_url)
+	except Exception as e:
+		print(f"{Fore.RED} Content type error. (get_content_type)\n {e} {Style.RESET_ALL}")
+		return
 	#domain = urlparse(page_url).netloc # Če boš tole spodi s subdomainom odkomentiral, zamenjaj v tej vrstici domain z t
 	#domain  = '.'.join(t.split('.')[-2:]) # Če želimo imeti samo main domain, ne pa tudi subdomain, npr. za www.e-vem.gov.si kot domain upoštevamo samo gov.si
 	ext = extract(page_url) # prints abc, hostname, com
