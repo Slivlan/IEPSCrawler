@@ -17,6 +17,7 @@ from colorama import Style
 from colorama import Fore
 from colorama import init
 import os
+from tldextract import extract
 
 init()
 
@@ -255,14 +256,11 @@ def get_page_id(url):
 def put_empty_page_in_db(page_object):
 	site_id = page_object['site_id']
 	url = page_object['url']
-	with lock: # TODO a gre with lock pred tem zgori al je tko ok, da je po tem?
-		try:
-			cur.execute('SELECT url FROM crawldb.page WHERE url = %s', (url,))
-			rows = cur.fetchall()
-			if not rows:
-				cur.execute('INSERT INTO crawldb.page (site_id, url) VALUES (%s, %s)', (site_id, url))
-		except Exception as e:
-			print(e)
+	#with lock: # TODO a gre with lock pred tem zgori al je tko ok, da je po tem?
+	try:
+		cur.execute('INSERT INTO crawldb.page (site_id, url) VALUES (%s, %s)', (site_id, url))
+	except Exception as e:
+		print(e)
 
 """
 	Update page entry
@@ -332,8 +330,10 @@ def get_images_links(page_url, worker_id):
 	chrome_options.add_argument('headless')
 	driver = webdriver.Chrome(chrome_options = chrome_options)
 	driver.get(page_url)
-	domain = urlparse(page_url).netloc # Če boš tole spodi s subdomainom odkomentiral, zamenjaj v tej vrstici domain z t
+	#domain = urlparse(page_url).netloc # Če boš tole spodi s subdomainom odkomentiral, zamenjaj v tej vrstici domain z t
 	#domain  = '.'.join(t.split('.')[-2:]) # Če želimo imeti samo main domain, ne pa tudi subdomain, npr. za www.e-vem.gov.si kot domain upoštevamo samo gov.si
+	ext = extract(page_url) # prints abc, hostname, com
+	domain = '.'.join(ext)
 	print(worker_id + " Page url: ", page_url)
 	print(worker_id + " Domain: ", domain)
 
@@ -349,7 +349,7 @@ def get_images_links(page_url, worker_id):
 			'site_id' : id_trenutnega_sitea,
 			'page_type_code' : 'html',
 			'url' : page_url,
-			'html_content' : page_cnt,
+			'html_content' : page_cnt.prettify(),
 			'http_status_code' : page_type['status_code'],
 			'html_content_md5' : html_md5(page_cnt),
 			'accessed_time' : datetime.datetime.now() # .strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
@@ -369,7 +369,7 @@ def get_images_links(page_url, worker_id):
 			'site_id' : id_trenutnega_sitea,
 			'page_type_code' : 'duplicate',
 			'url' : page_url,
-			'html_content' : page_cnt,
+			'html_content' : '',
 			'http_status_code' : page_type['status_code'],
 			'html_content_md5' : html_md5(page_cnt),
 			'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
@@ -449,11 +449,13 @@ def get_images_links(page_url, worker_id):
 					})
 				# if found link is not yet in table.page, add it to frontier (frontier.py, add_page()).
 				if (is_link_in_table_page(i) == False):
-					t = urlparse(i).netloc
-					domain_found_link  = '.'.join(t.split('.')[-2:])
+					# t = urlparse(i).netloc					
+					# domain_found_link  = '.'.join(t.split('.')[-2:])
+					ext_1 = extract(i) # prints abc, hostname, com
+					domain_found_link = '.'.join(ext_1)
 					if (can_crawl(domain_found_link, i)):
 						id_site = get_site_id(domain_found_link) # Če ni notr, lahk ful cajta traja.
-						id_page = put_page_in_db(page)
+						id_page = put_empty_page_in_db({'site_id':id_site, 'url':i})
 						frontier.add_page(i, domain_found_link)
 				link_to_db.append({ # TODO poberi id od trenutne strani in 'to' strani
 					'from': id_trenutnega_pagea, # Tuki je id_trenutnega_pagea
