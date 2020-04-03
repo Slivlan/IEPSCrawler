@@ -31,4 +31,4 @@ primer za 6 threadov:
 
 ## Vizualizacija
 
-Za pregled vizualizacije se lahko uporabi Gephi program, v katerem odpremo datoteko [links_visualisation.gephi](/links_visualisation.gephi)
+Za pregled vizualizacije se lahko uporabi Gephi program, v katerem odpremo datoteko [links_visualisation.gephi](/links_visualisation.gephi).
