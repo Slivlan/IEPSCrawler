@@ -26,11 +26,9 @@ init()
 # Frontier object for frontier interaction
 frontier = Frontier()
 
-#os.system('color')
-
 domains = ["gov.si", "evem.gov.si", "e-uprava.gov.si", "e-prostor.gov.si"]
 urls = ["https://www.gov.si", "http://evem.gov.si/evem/drzavljani/zacetna.evem", "https://e-uprava.gov.si/", "https://www.e-prostor.gov.si/"]
-#domains = ['www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip']
+
 allowed_domain = 'gov.si'
 type_codes = {
 	'application/msword' : 'doc',
@@ -69,22 +67,6 @@ def reset_database():
 	cur.execute("ALTER SEQUENCE	crawldb.page_data_id_seq RESTART WITH 1;")
 	cur.execute("ALTER SEQUENCE	crawldb.page_id_seq RESTART WITH 1;")
 	cur.execute("ALTER SEQUENCE	crawldb.site_id_seq RESTART WITH 1;")
-
-def get_next_page_id():
-	with lock:
-		cur.execute("SELECT next_page_id FROM Frontier")
-		rows = cur.fetchone()
-		return rows[0]
-
-def increment_next_page_id():
-	with lock:
-		cur.execute("UPDATE Frontier SET next_page_id = next_page_id + 1")
-
-#test
-#print(get_next_page_id())
-#increment_next_page_id()
-#print(get_next_page_id())
-#exit()
 
 """
 	Get hash for html
@@ -304,9 +286,6 @@ def put_link_in_db(link_object):
 	Get robots and sitemap data as tuple (robots_data, sitemap_data) if exists
 """
 def get_robots_sitemap_data(domain):
-	# crawl_delay_sec_t = rp.crawl_delay(user_agent)
-	# if crawl_delay_sec_t:
-	#     crawl_delay_sec = crawl_delay_sec_t
 
 	try:
 		url = "http://{}/robots.txt".format(domain)
@@ -343,8 +322,7 @@ def get_images_links(page_url, worker_id):
 	try:
 		driver.get(page_url)
 	except Exception as e:
-		print(f"{Fore.RED} Content type error. (get_content_type)\n {e} {Style.RESET_ALL}")
-		return
+		print(f"{Fore.RED} Exception za driver! {e} {Style.RESET_ALL}")
 	#domain = urlparse(page_url).netloc # Če boš tole spodi s subdomainom odkomentiral, zamenjaj v tej vrstici domain z t
 	#domain  = '.'.join(t.split('.')[-2:]) # Če želimo imeti samo main domain, ne pa tudi subdomain, npr. za www.e-vem.gov.si kot domain upoštevamo samo gov.si
 	ext = extract(page_url) # prints abc, hostname, com
@@ -398,32 +376,23 @@ def get_images_links(page_url, worker_id):
 	links = []
 
 	imgs = page_cnt.findAll('img')
-	#print("IMGS len: ", len(imgs))
 	for img in imgs:
-		#print("IMG ", img)
 		src = img['src']
-		#print("SRC: ", src)
 		if src.startswith('data:image'):
-			#print("OH YES.")
 			continue
 		images.append(src)
 	hyperlinks = page_cnt.findAll('a')
-	#print("HYPERLINKS: ", hyperlinks)
-	#print("HYPERLINKS len: ", len(hyperlinks))
 	for hyperlink in hyperlinks:
-		#print("HYPERLINK", hyperlink)
 		try:
 			href = hyperlink['href']
 		except Exception as e:
 			print("There is no href in this a.", e)
 			continue
-		#print("HREF: ", href)
 		if href == '':
 			print("HREF is None, empty")
 			continue
 		if href.startswith('http') == False:
 			if ('mailto:' in href) or  ('tel:' in href) or ('javascript:' in href) or (href[0] == '#') or (href == '/'):
-				#print("FOUND inappropriate: ", href)
 				continue
 			if href.startswith('www'):
 				href = 'http://{}'.format(page_url).strip()
@@ -439,7 +408,6 @@ def get_images_links(page_url, worker_id):
 			link = ''.join(link)
 			if link.startswith('http') == False:
 				if ('mailto:' in link) or  ('tel:' in link) or ('javascript:' in link) or (link[0] == '#') or (link == '/'):
-					#print("FOUND inappropriate: ", link)
 					continue
 				if link.startswith('www'):
 					link = 'http://{}'.format(page_url).strip()
@@ -457,8 +425,6 @@ def get_images_links(page_url, worker_id):
 			domain_found_link = '.'.join(ext_1)
 			if (allowed_domain in domain_found_link) and (page_url+'/' != i):
 				pg_tp = get_content_type(i)
-				# print("PG_TP")
-				# print(pg_tp)
 				if (pg_tp['page_type_code'] != 'html') and (pg_tp['page_type_code'] in type_codes.values()):
 					page_data.append({
 						'page_id' : id_trenutnega_pagea,
@@ -467,9 +433,7 @@ def get_images_links(page_url, worker_id):
 					})
 				# if found link is not yet in table.page, add it to frontier (frontier.py, add_page()).
 				if (is_link_in_table_page(i) == False):
-					# t = urlparse(i).netloc					
-					# domain_found_link  = '.'.join(t.split('.')[-2:])
-					
+
 					if (can_crawl(domain_found_link, i)):
 						id_site = get_site_id(domain_found_link) # Če ni notr, lahk ful cajta traja.
 						id_page = put_empty_page_in_db({'site_id':id_site, 'url':i})
@@ -478,12 +442,7 @@ def get_images_links(page_url, worker_id):
 					'from': id_trenutnega_pagea, # Tuki je id_trenutnega_pagea
 					'to': get_page_id(i) # Kako pa dobit tole? Še ne obstaja v bazi, ne?
 				})
-	# print("link_to_db: ")
-	# print(link_to_db)
-	# print("len(link_to_db): ", len(link_to_db))
-	# print("link_to_frontier:", )
-	# print(link_to_frontier)
-	# print("len(link_to_frontier): ", len(link_to_frontier))
+
 	image_to_db = []
 	if len(images) > 0:
 		for i in images:
@@ -495,23 +454,19 @@ def get_images_links(page_url, worker_id):
 				'data' : None,
 				'accessed_time' : datetime.datetime.now() #.strftime("%d. %m. %Y %H:%M:%S.%f") # TODO pustim brez formatiranja ali s formatiranjem?
 			})
-	#print("image_to_db: ")
-	#print(image_to_db)
-	#print("len(image_to_db): ", len(image_to_db))
+
 	print("PAGE_DATA:")
 	print(page_data)
 	driver.close()
 	driver.quit()
-	print("-----KONECKONECKONEC-------")
-	#return (link_to_db, image_to_db, page, page_data)
-	# TODO UPDATE trenutni page (že more obstajat, ga samo updateaš - use razn url-ja pa id-ja) page putam notr.
+	#UPDATE trenutni page (že more obstajat, ga samo updateaš - use razn url-ja pa id-ja) page putam notr.
 	update_page_entry(id_trenutnega_pagea, page)
-	# TODO INSERT link_to_db v tabelo link
+	#INSERT link_to_db v tabelo link
 	for li in link_to_db:
 		put_link_in_db(li)
-	# TODO INSERT image_to_db v tabelo image
+	#INSERT image_to_db v tabelo image
 	insert_imgs_to_db(image_to_db)
-	# TODO INSERT page_data v tabelo page_data
+	#INSERT page_data v tabelo page_data
 	insert_page_data_to_db(page_data)
 
 """
@@ -523,9 +478,7 @@ def get_content_type(url_link):
 	page_type = {'page': url_link, 'status_code': status_code, 'page_type_code': 'other'}
 	try:
 		res = requests.get(url_link)
-		#print("res: ", res)
 	except Exception as e:
-		#print("Requests error: ", e)
 		print(f"{Fore.RED} Requests error. (get_content_type)\n {e} {Style.RESET_ALL}")
 	if res != '':
 		try:
@@ -533,9 +486,7 @@ def get_content_type(url_link):
 			content_type = res.headers['Content-Type']
 			if ';' in content_type:
 				content_type = content_type.split(';')[0]
-			#print("CONTENT TYPE: ", content_type)
 		except Exception as e:
-			#print("Content type error: ", e)
 			print(f"{Fore.RED} Content type error. (get_content_type)\n {e} {Style.RESET_ALL}")
 
 		# doc, docx, pdf, ppt, pptx
@@ -543,7 +494,6 @@ def get_content_type(url_link):
 			page_type = {'page': url_link, 'status_code': status_code, 'page_type_code': type_codes[content_type]}
 		else:
 			page_type = {'page': url_link, 'status_code': status_code, 'page_type_code': 'other'}
-	#print(page_type)
 	return page_type
 
 """
@@ -554,7 +504,6 @@ def is_link_in_table_page(url):
 		cur.execute("SELECT * FROM crawldb.page WHERE url = %s", (url,))
 		try:
 			rows = cur.fetchall()
-			#print(rows)
 			if rows:
 				print("URL ", url, " is already in.")
 				return True
