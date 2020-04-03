@@ -17,7 +17,7 @@ pip install requests
 Chrome webdriver je že v repozitoriju, tako da ga ni potrebno posebej inštalirat.
 ## Postgres
 
-Postgres baza že teče na vps-ju, zato v kodi ni potrebno spreminjat nobenih argumentov, ampak bo ob zagonu skripte vse delovalo "out of the box". \n
+Postgres baza že teče na vps-ju, zato v kodi ni potrebno spreminjat nobenih argumentov, ampak bo ob zagonu skripte vse delovalo "out of the box".   
 Opomba: Ob vsakem zagonu crawlerja, se baza na začetku resetira. Tako da vnosov iz prejšnjih izvedb crawlerja ni v bazi.
 
 ## Uporaba
