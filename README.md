@@ -24,6 +24,7 @@ Opomba: Ob vsakem zagonu crawlerja, se baza na začetku resetira. Tako da vnosov
 
 Poženi crawler z ukazom 
 ```python
+cd crawler
 python crawler.py <int_stevilo_threadov>
 primer za 6 threadov:
   python crawler.py 6
