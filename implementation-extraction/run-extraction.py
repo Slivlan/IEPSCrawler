@@ -2,15 +2,32 @@
 	Main script of programming assignment 2, WIER. https://szitnik.github.io/wier-labs/PA2.html
 """
 import sys
+from Regex import Regex
+from XPath import XPath
+from Auto import Auto
+
+# Load given htmls from input-extraction folder. They will be given to ectractor classes as input.
+overstock_sample_one = open('../input-extraction/overstock.com/jewelry01.html', 'r').read()
+overstock_sample_two = open('../input-extraction/overstock.com/jewelry02.html', 'r').read()
+
+rtv_sample_one = open('../input-extraction/rtvslo.si/Audi A6 50 TDI quattro_ nemir v premijskem razredu - RTVSLO.si.html', 'r').read()
+rtv_sample_two = open('../input-extraction/rtvslo.si/Volvo XC 40 D4 AWD momentum_ suvereno med najboljše v razredu - RTVSLO.si.html', 'r').read()
+
+# TODO Select and load other two samples per two webpages
+#selected_webpage_one_sample_one = open('../input-extraction/... .html', 'r').read()
+#selected_webpage_one_sample_two = open('../input-extraction/... .html', 'r').read()
+
+#selected_webpage_two_sample_one = open('../input-extraction/... .html', 'r').read()
+#selected_webpage_two_sample_two = open('../input-extraction/... .html', 'r').read()
 
 def regex_extraction(): # TODO A
-	pass
+	regex = Regex(overstock_sample_one, overstock_sample_two, rtv_sample_one, rtv_sample_two)#, selected_webpage_one_sample_one, selected_webpage_one_sample_two, selected_webpage_two_sample_one, selected_webpage_one_sample_two)
 
 def xpath_extraction(): # TODO B
-	
+	xpath = XPath(overstock_sample_one, overstock_sample_two, rtv_sample_one, rtv_sample_two)#, selected_webpage_one_sample_one, selected_webpage_one_sample_two, selected_webpage_two_sample_one, selected_webpage_one_sample_two)	
 
 def auto_extraction(): # TODO C
-	pass
+	auto = Auto(overstock_sample_one, overstock_sample_two, rtv_sample_one, rtv_sample_two)#, selected_webpage_one_sample_one, selected_webpage_one_sample_two, selected_webpage_two_sample_one, selected_webpage_one_sample_two)
 
 def execute():
 	args = sys.argv
