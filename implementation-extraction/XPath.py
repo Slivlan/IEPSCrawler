@@ -17,8 +17,8 @@ class XPath:
 		self.extract_overstock(self.overstock_sample_two)
 		self.extract_rtvslo(self.rtv_sample_one)
 		self.extract_rtvslo(self.rtv_sample_two)
-		self.extract_selected(self.selected_sample_one)
-		self.extract_selected(self.selected_sample_two)
+		#self.extract_selected(self.selected_sample_one)
+		#self.extract_selected(self.selected_sample_two)
 
 	def extract_overstock(self, sample):
 		tree = html.fromstring(sample)
@@ -72,5 +72,6 @@ class XPath:
 		}
 		print(json.dumps(data, indent=4, ensure_ascii=False))
 		print()
+
 	def extract_selected(self, sample): # TODO replace selected_one with actual webpage name
 		pass
