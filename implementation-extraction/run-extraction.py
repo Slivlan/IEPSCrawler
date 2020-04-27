@@ -14,20 +14,17 @@ rtv_sample_one = open('../input-extraction/rtvslo.si/Audi A6 50 TDI quattro_ nem
 rtv_sample_two = open('../input-extraction/rtvslo.si/Volvo XC 40 D4 AWD momentum_ suvereno med najboljše v razredu - RTVSLO.si.html', 'r').read()
 
 # TODO Select and load other two samples per two webpages
-#selected_webpage_one_sample_one = open('../input-extraction/... .html', 'r').read()
-#selected_webpage_one_sample_two = open('../input-extraction/... .html', 'r').read()
-
-#selected_webpage_two_sample_one = open('../input-extraction/... .html', 'r').read()
-#selected_webpage_two_sample_two = open('../input-extraction/... .html', 'r').read()
+#selected_sample_one = open('../input-extraction/... .html', 'r').read()
+#selected_sample_two = open('../input-extraction/... .html', 'r').read()
 
 def regex_extraction(): # TODO A
-	regex = Regex(overstock_sample_one, overstock_sample_two, rtv_sample_one, rtv_sample_two)#, selected_webpage_one_sample_one, selected_webpage_one_sample_two, selected_webpage_two_sample_one, selected_webpage_one_sample_two)
+	regex = Regex(overstock_sample_one, overstock_sample_two, rtv_sample_one, rtv_sample_two)#, selected_sample_one, selectedsample_two
 
 def xpath_extraction(): # TODO B
-	xpath = XPath(overstock_sample_one, overstock_sample_two, rtv_sample_one, rtv_sample_two)#, selected_webpage_one_sample_one, selected_webpage_one_sample_two, selected_webpage_two_sample_one, selected_webpage_one_sample_two)	
+	xpath = XPath(overstock_sample_one, overstock_sample_two, rtv_sample_one, rtv_sample_two)#, selected_sample_one, selectedsample_two
 
 def auto_extraction(): # TODO C
-	auto = Auto(overstock_sample_one, overstock_sample_two, rtv_sample_one, rtv_sample_two)#, selected_webpage_one_sample_one, selected_webpage_one_sample_two, selected_webpage_two_sample_one, selected_webpage_one_sample_two)
+	auto = Auto(overstock_sample_one, overstock_sample_two, rtv_sample_one, rtv_sample_two)#, selected_sample_one, selectedsample_two
 
 def execute():
 	args = sys.argv
