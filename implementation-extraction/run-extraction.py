@@ -7,8 +7,8 @@ from XPath import XPath
 from Auto import Auto
 
 # Load given htmls from input-extraction folder. They will be given to ectractor classes as input.
-overstock_sample_one = open('../input-extraction/overstock.com/jewelry01.html', 'r').read()
-overstock_sample_two = open('../input-extraction/overstock.com/jewelry02.html', 'r').read()
+overstock_sample_one = open('../input-extraction/overstock.com/jewelry01.html', 'r', encoding='windows-1250').read()
+overstock_sample_two = open('../input-extraction/overstock.com/jewelry02.html', 'r', encoding='windows-1250').read()
 
 rtv_sample_one = open('../input-extraction/rtvslo.si/Audi A6 50 TDI quattro_ nemir v premijskem razredu - RTVSLO.si.html', 'r', encoding='utf-8').read()
 rtv_sample_two = open('../input-extraction/rtvslo.si/Volvo XC 40 D4 AWD momentum_ suvereno med najboljše v razredu - RTVSLO.si.html', 'r', encoding='utf-8').read()
