@@ -4,6 +4,7 @@
 """
 from lxml import html
 import json
+import sys # TODO delete
 
 class XPath:
 	def __init__(self, overstock_sample_one, overstock_sample_two, rtv_sample_one, rtv_sample_two, selected_sample_one, selected_sample_two):
@@ -17,8 +18,8 @@ class XPath:
 		self.extract_overstock(self.overstock_sample_two)
 		self.extract_rtvslo(self.rtv_sample_one)
 		self.extract_rtvslo(self.rtv_sample_two)
-		#self.extract_selected(self.selected_sample_one)
-		#self.extract_selected(self.selected_sample_two)
+		self.extract_selected(self.selected_sample_one)
+		self.extract_selected(self.selected_sample_two)
 
 	def extract_overstock(self, sample):
 		tree = html.fromstring(sample)
@@ -74,4 +75,36 @@ class XPath:
 		print()
 
 	def extract_selected(self, sample): # TODO replace selected_one with actual webpage name
-		pass
+		tree = html.fromstring(sample)
+		# Title
+		title = tree.xpath('//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/h1/text()')[0].strip()
+		# OrigTitle
+		origtitle = tree.xpath('//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/div[1]/text()')[0]
+		# Year
+		year = tree.xpath('//*[@id="titleYear"]/a/text()')[0]
+		# Length
+		length = tree.xpath('//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/div[2]/time/text()')[0].strip()
+		# Rating
+		rating = tree.xpath('//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[1]/div[1]/div[1]/strong/span/text()')[0]
+		# Description
+		description = tree.xpath('//*[@id="title-overview-widget"]/div[2]/div[1]/div[1]/text()')[0].strip()
+		# Director
+		director = tree.xpath('//*[@id="title-overview-widget"]/div[2]/div[1]/div[2]/a/text()')[0]
+		# Cast
+		cast_extr = tree.xpath('//*[@id="titleCast"]/table/tbody/tr/td[2]/a/text()')
+		cast = []
+		for i in cast_extr:
+			cast.append(i.strip())
+
+		data = {
+			'Title': title,
+			'OrigTitle': origtitle,
+			'Year': year,
+			'Length': length,
+			'Rating': rating,
+			'Description': description,
+			'Director': director,
+			'Cast': cast
+		}
+		print(json.dumps(data, indent=4, ensure_ascii=False))
+		print()
