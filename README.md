@@ -1,4 +1,7 @@
-# Crawler
+# Iskanje in ekstrakcija podatkov s spleta
+Dobrodošli v repozitoriju naše skupine (Mihael Švigelj, Lovro Vražič, Luka Zakšek) za oddajo seminarskih nalog pri predmetu Iskanje in ekstrakcija podatkov s spleta (2019/20) na Fakulteti za računalništvo in informatiko Univerze v Ljubljani.
+
+# Seminarska 1: Crawler
 
 Crawler je projekt, ki smo ga razvili Luka, Mihael in Lovro za prvo domačo nalogo pri predmetu Iskanje in ekstrakcija podatkov s spleta.
 
@@ -36,3 +39,31 @@ Primer za 6 threadov:
 ## Vizualizacija
 
 Za pregled vizualizacije se lahko uporabi Gephi program, v katerem odpremo datoteko [links_visualisation.gephi](/links_visualisation.gephi).
+
+# Seminarska 2: Data Extractor
+Cilj seminarske naloge je bil razviti 3 metode ekstrakcije podatkov s podanih vzorcev spletnih strani.
+## Namestitev
+
+Uporabi [pip](https://pip.pypa.io/en/stable/) za namestitev. Potrebne so sledeče knjižnice:
+
+```bash
+pip install lxml
+```
+## Uporaba
+Skripta run-extraction.py se nahaja v direktoriju "implementation-extraction", od koder jo tudi poženemo.
+
+Na voljo so 3 načini ekstrakcije:
+- A: Uporaba [RegEx](https://en.wikipedia.org/wiki/Regular_expression) (Regular expressions):
+```python
+ python run-extraction.py A
+```
+- B: Uporaba [XPath](https://en.wikipedia.org/wiki/XPath) ekstrakcije:
+```python
+ python run-extraction.py B
+```
+- C: TODOTODOTODO Uporaba ... TODO ...:
+```python
+ python run-extraction.py C
+```
+Če podamo napačen način izvedbe (A/B/C), nas program o tem opozori ter se preneha izvajati.
+Ekstrakcija se naredi na spletnih straneh, podanih v direktoriju "input-extraction".
