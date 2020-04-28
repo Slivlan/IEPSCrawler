@@ -3,13 +3,13 @@
 """
 
 class Auto:
-	def __init__(self, overstock_sample_one, overstock_sample_two, rtv_sample_one, rtv_sample_two):#, selected_sample_one, selected_sample_two:
+	def __init__(self, overstock_sample_one, overstock_sample_two, rtv_sample_one, rtv_sample_two, selected_sample_one, selected_sample_two):
 		self.overstock_sample_one = overstock_sample_one
 		self.overstock_sample_two = overstock_sample_two
 		self.rtv_sample_one = rtv_sample_one
 		self.rtv_sample_two = rtv_sample_two
-		"""self.selected_sample_one = selected_sample_one
-		self.selected_sample_two = selected_sample_two"""
+		self.selected_sample_one = selected_sample_one
+		self.selected_sample_two = selected_sample_two
 
 	def extract_overstock(self):
 		pass
