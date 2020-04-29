@@ -4,6 +4,7 @@
 
 import re
 import json
+import html2text
 
 class Regex:
 	def __init__(self, overstock_sample_one, overstock_sample_two, rtv_sample_one, rtv_sample_two, selected_sample_one, selected_sample_two):
@@ -42,7 +43,7 @@ class Regex:
 		prices = prices_match.findall(sample)
 
 		# Saving
-		re_exp_savings = r"<b>You Save:[\w\W]*?class=\"littleorange\"(.*?)</span>"
+		re_exp_savings = r"<b>You Save:[\w\W]*?class=\"littleorange\"\>(.*?)\)</span>"
 		savings_match = re.compile(re_exp_savings, re.DOTALL)
 		savings = savings_match.findall(sample)
 
@@ -53,7 +54,7 @@ class Regex:
 				'Content': contents[i].replace('\n', ' '),
 				'ListPrice': list_prices[i],
 				'Price': prices[i],
-				'Saving': savings[i].split(' (')[1],
+				'Saving': savings[i].split(' (')[0],
 				'SavingPercent': savings[i].split(' (')[1].strip(')')
 			}
 			dict_list.append(data)
@@ -92,7 +93,11 @@ class Regex:
 		content_match = re.compile(re_exp_content, re.DOTALL).search(sample)
 		#figure_caption = content_match.group(2)
 		#content = figure_caption + content_match.group(4)
-		content = content_match.group(1)
+		content = content_match.group(1).strip()
+		h = html2text.HTML2Text()
+		h.ignore_links = True
+		h.ignore_images = True
+		content = h.handle(content)
 
 		data = {
 			'Author': author,
