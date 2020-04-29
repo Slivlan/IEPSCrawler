@@ -94,6 +94,8 @@ class Regex:
 		#figure_caption = content_match.group(2)
 		#content = figure_caption + content_match.group(4)
 		content = content_match.group(1).strip()
+		#content = self.cleanhtml(content)
+		#print(content)
 		h = html2text.HTML2Text()
 		h.ignore_links = True
 		h.ignore_images = True
@@ -108,7 +110,12 @@ class Regex:
 			'Content': content
 		}
 		print(json.dumps(data, indent=4, ensure_ascii=False))
-	
+
+	def cleanhtml(self, raw_html):
+		cleanr = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
+		cleantext = re.sub(cleanr, '', raw_html)
+		return cleantext
+
 	def extract_selected(self, sample): # TODO replace selected_one with actual webpage name
 		# Title
 		re_exp_title = r"<h1 class=\"\">(.*?)\&nbsp\;<span"
