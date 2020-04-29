@@ -5,6 +5,7 @@
 import re
 import json
 import html2text
+from bs4 import BeautifulSoup
 
 class Regex:
 	def __init__(self, overstock_sample_one, overstock_sample_two, rtv_sample_one, rtv_sample_two, selected_sample_one, selected_sample_two):
@@ -89,16 +90,18 @@ class Regex:
 
 		# Content
 		#re_exp_content = r"<div class=\"article-body\">(.*?)</span>(.*?)\s*</figcaption>(.*?)<p class=\"Body\"></p><p class=\"Body\">(.*?)<div class=\"gallery\">"
-		re_exp_content = r"<div class=\"article-body\">(.*?)</article>"
-		content_match = re.compile(re_exp_content, re.DOTALL).search(sample)
 		#figure_caption = content_match.group(2)
 		#content = figure_caption + content_match.group(4)
-		content = content_match.group(1).strip()
-		#content = self.cleanhtml(content)
-		#print(content)
+
+		re_exp_content = r"<div class=\"article-body\">(.*?)</article>"
+		content_match = re.compile(re_exp_content, re.DOTALL).search(sample)
+		content = content_match.group(1)
+
+		#content = cleantext = BeautifulSoup(content, "lxml").text.strip().replace("\t", "").replace("\n", "")
+
 		h = html2text.HTML2Text()
-		h.ignore_links = True
-		h.ignore_images = True
+		#h.ignore_links = True
+		#h.ignore_images = True
 		content = h.handle(content)
 
 		data = {
@@ -110,11 +113,6 @@ class Regex:
 			'Content': content
 		}
 		print(json.dumps(data, indent=4, ensure_ascii=False))
-
-	def cleanhtml(self, raw_html):
-		cleanr = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
-		cleantext = re.sub(cleanr, '', raw_html)
-		return cleantext
 
 	def extract_selected(self, sample): # TODO replace selected_one with actual webpage name
 		# Title
