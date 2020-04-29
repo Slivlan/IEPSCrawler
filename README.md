@@ -48,6 +48,8 @@ Uporabi [pip](https://pip.pypa.io/en/stable/) za namestitev. Potrebne so sledeč
 
 ```bash
 pip install lxml
+pip install html2text
+pip install htmldom
 ```
 ## Uporaba
 Skripta run-extraction.py se nahaja v direktoriju "implementation-extraction", od koder jo tudi poženemo.
