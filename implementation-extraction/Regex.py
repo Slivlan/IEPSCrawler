@@ -102,7 +102,7 @@ class Regex:
 		h = html2text.HTML2Text()
 		#h.ignore_links = True
 		#h.ignore_images = True
-		content = h.handle(content)
+		content = h.handle(content).replace("\n", " ")
 
 		data = {
 			'Author': author,
