@@ -60,8 +60,6 @@ class Regex:
 		print(json.dumps(dict_list, indent=4))
 		print()
 
-		pass
-
 	def extract_rtvslo(self, sample):
 		# Author
 		re_exp_author = r"<div class=\"author-name\">(.*)</div>"
@@ -96,8 +94,6 @@ class Regex:
 		#content = figure_caption + content_match.group(4)
 		content = content_match.group(1)
 
-
-
 		data = {
 			'Author': author,
 			'PublishedTime': published_time,
@@ -107,7 +103,57 @@ class Regex:
 			'Content': content
 		}
 		print(json.dumps(data, indent=4, ensure_ascii=False))
-		pass
 	
 	def extract_selected(self, sample): # TODO replace selected_one with actual webpage name
-		pass
+		# Title
+		re_exp_title = r"<h1 class=\"\">(.*?)\&nbsp\;<span"
+		title_match = re.compile(re_exp_title).search(sample)
+		title = title_match.group(1)
+
+		# OrigTitle
+		re_exp_orig_title = r"<div class=\"originalTitle\">(.*?)<span class=\"description\">"
+		orig_title_match = re.compile(re_exp_orig_title).search(sample)
+		orig_title = orig_title_match.group(1)
+
+		# Year
+		re_exp_year = r"<span id=\"titleYear\">\(<a href=\"[\w\W]*?\">(.*?)</a>\)</span>"
+		year_match = re.compile(re_exp_year).search(sample)
+		year = year_match.group(1)
+
+		# Length
+		re_exp_length = r"<time datetime=\"[\W\w]*?\">\s*(.*?)\s*</time>"
+		length_match = re.compile(re_exp_length).search(sample)
+		length = length_match.group(1)
+
+		# Rating
+		re_exp_rating = r"<span itemprop=\"ratingValue\">(.*?)</span>"
+		rating_match = re.compile(re_exp_rating).search(sample)
+		rating = rating_match.group(1)
+
+		# Description
+		re_exp_description = r"<div class=\"summary_text\">\s*(.*?)\s*</div>"
+		description_match = re.compile(re_exp_description).search(sample)
+		description = description_match.group(1)
+
+		# Director
+		re_exp_director = r"<h4 class=\"inline\">Director:</h4>\s<a href=\"[\w\W]*?\">(.*?)</a>"
+		director_match = re.compile(re_exp_director).search(sample)
+		director = director_match.group(1)
+
+		# Cast
+		re_exp_cast = r"<td>\s<a href=\"https://www\.imdb\.com/name/[\w\W]*?\">\s(.*?)\s</a>"
+		cast_match = re.compile(re_exp_cast, re.DOTALL)
+		cast = cast_match.findall(sample)
+
+		data = {
+			'Title': title,
+			'OrigTitle': orig_title,
+			'Year': year,
+			'Length': length,
+			'Rating': rating,
+			'Description': description,
+			'Director': director,
+			'Cast': cast
+		}
+		print(json.dumps(data, indent=4, ensure_ascii=False))
+		print()
