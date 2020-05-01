@@ -94,7 +94,7 @@ class Regex:
 		# content_body = content_match.group(2)
 		# content = self.cleanhtml(content_header + content_body)
 
-		re_exp_content = r"<div class=\"article-body\">(.*?)</article>"
+		re_exp_content = r"<div class=\"article-body\">(.*?)<div class=\"gallery\">"
 		content_match = re.compile(re_exp_content, re.DOTALL).search(sample)
 		content = content_match.group(1)
 
