@@ -64,7 +64,8 @@ def text_to_tokens_without_stopwords(text):
     return a
         
 
-
+'''
 d = get_words_and_files()
 print(d[0]['documentName'])
 print(d[0]['words'])
+'''
