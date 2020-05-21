@@ -12,31 +12,36 @@ from stopwords import stop_words_slovene
     Prebere vse html datoteke znotraj ./data (rekurzivno globinsko)
     Vrne array tuplov s polji words in documentName
 '''
-def get_words_and_files():
-
+def get_words_from_all_files():
     data = []
     for path in Path('./data').rglob('*.html'):
-
-        html = open(path, 'r', encoding='utf').read()
-        '''
-        h = html2text.HTML2Text()
-        h.ignore_links = True
-        h.ignore_images = True
-        text = h.handle(html)
-
-        '''
-        text = html_to_text(html)
-        
-        text = text.lower()
-
-        # tokenizacija in stopword removal
-        a = text_to_tokens_without_stopwords(text)
-        
         entry = {}
+        a = get_words_from_file(path)
         entry['words'] = a
-        entry['documentName'] = os.path.basename(path)
+        entry['documentName'] = str(path)
+        #entry['documentName'] = os.path.basename(path)
         data.append(entry)
     return data
+
+def get_words_from_file(path):
+    html = open(path, 'r', encoding='utf').read()
+
+    # print(path)
+
+    '''
+    h = html2text.HTML2Text()
+    h.ignore_links = True
+    h.ignore_images = True
+    text = h.handle(html)
+    '''
+
+    text = html_to_text(html)
+
+    text = text.lower()
+
+    # tokenizacija in stopword removal
+    a = text_to_tokens_without_stopwords(text)
+    return a
 
 def html_to_text(html):
     # https://stackoverflow.com/questions/328356/extracting-text-from-html-file-using-python
