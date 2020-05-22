@@ -3,6 +3,7 @@
 import sqlite3
 from preprocessing import *
 import time
+import sys
 start_time = time.time()
 
 def db_init():
@@ -36,31 +37,37 @@ def insert_posting(word, documentName, frequnecy, indexes):
 def get_neighbourhood_of_word():
     pass
 
-def search_word(word):
-    conn.execute("SELECT * FROM Posting WHERE word = ? ORDER BY frequency DESC;", (word,))
-    rows = conn.fetchall()
+def search_words(words):
+    result = []
+    for word in words:
 
-    for row in rows:
-        documentName = row[1]
-        frequency = row[2]
-        indexes = [int(i) for i in row[3].split(",")]
+        conn.execute("SELECT * FROM Posting WHERE word = ? ORDER BY frequency DESC;", (word,))
+        rows = conn.fetchall()
 
-        words = get_words_from_file(documentName)
-        neighbourhood_words = [words[i-3:i+4] for i in indexes]
-        fin_s = ""
+        for row in rows:
+            documentName = row[1]
+            frequency = row[2]
+            indexes = [int(i) for i in row[3].split(",")]
 
-        for neighbourhood in neighbourhood_words:
-            fin_s += "..."
-            for i, word in enumerate(neighbourhood):
-                if word in {"[","]","'", '"', "\n", "\t"}:
-                    continue
-                if word not in {",", ".", ")"} or i == 0 :
-                    fin_s +=  " " + word
-                else:
-                    fin_s += word
-            fin_s += " "
+            words = get_words_from_file(documentName)
+            neighbourhood_words = [words[i-3:i+4] for i in indexes]
+            fin_s = ""
 
-        print("  {:<12}{:<59}{}".format(frequency,documentName,fin_s))
+            for neighbourhood in neighbourhood_words:
+                fin_s += "..."
+                for i, word in enumerate(neighbourhood):
+                    if word in {"[","]","'", '"', "\n", "\t"}:
+                        continue
+                    if word not in {",", ".", ")"} or i == 0 :
+                        fin_s +=  " " + word
+                    else:
+                        fin_s += word
+                fin_s += " "
+
+            result.append((frequency, "  {:<12}{:<59}{}".format(frequency, documentName, fin_s)))
+
+    result = sorted(result, key= lambda x: x[0], reverse=True)
+    return result
 
 
 def save_to_database(data):
@@ -89,10 +96,19 @@ conn = sqlite3.connect('inverted-index.db', isolation_level=None).cursor()
 # print("Getting words and filenames...")
 # data = get_words_from_all_files()
 # save_to_database(data)
+
+w = sys.argv[1:]
+
+print('Searching for a query: "{}"'.format(" ".join(w)))
+results = search_words(w)
+print('Results for a query: "{}"'.format(" ".join(w)))
+print("\n  Results found in %s seconds" % (time.time() - start_time))
 print ("""
   Frequencies Document                                                   Snippet
   ----------- ---------------------------------------------------------- ----------------------------------------------------------------------------------------
 """)
-search_word("uporabo")
-print("--- %s seconds ---" % (time.time() - start_time))
+
+
+for freq, s in results:
+    print(s)
 conn.close()
