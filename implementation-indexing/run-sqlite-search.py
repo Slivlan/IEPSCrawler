@@ -100,7 +100,7 @@ save_to_database(data)
 '''
 
 w = sys.argv[1:]
-w = str(w)
+w = str(" ".join(w))
 w.lower()
 w = text_to_tokens_without_stopwords(w)
 
