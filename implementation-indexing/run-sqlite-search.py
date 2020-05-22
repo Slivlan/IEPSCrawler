@@ -2,6 +2,8 @@
 
 import sqlite3
 from preprocessing import *
+import time
+start_time = time.time()
 
 def db_init():
     conn.execute('''
@@ -92,8 +94,5 @@ print ("""
   ----------- ---------------------------------------------------------- ----------------------------------------------------------------------------------------
 """)
 search_word("uporabo")
-
-
-
-
+print("--- %s seconds ---" % (time.time() - start_time))
 conn.close()
