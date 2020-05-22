@@ -39,16 +39,26 @@ def search_word(word):
     rows = conn.fetchall()
 
     for row in rows:
-
         documentName = row[1]
         frequency = row[2]
         indexes = [int(i) for i in row[3].split(",")]
 
         words = get_words_from_file(documentName)
+        neighbourhood_words = [words[i-3:i+4] for i in indexes]
+        fin_s = ""
 
-        found_words = [words[i-3:i+4] for i in indexes]
+        for neighbourhood in neighbourhood_words:
+            fin_s += "..."
+            for i, word in enumerate(neighbourhood):
+                if word in {"[","]","'", '"', "\n", "\t"}:
+                    continue
+                if word not in {",", ".", ")"} or i == 0 :
+                    fin_s +=  " " + word
+                else:
+                    fin_s += word
+            fin_s += " "
 
-        print("  {:<12}{:<59}{}".format(frequency,documentName,str(found_words).replace(",", "").replace("[", "").replace("]", "").replace("'", "")))
+        print("  {:<12}{:<59}{}".format(frequency,documentName,fin_s))
 
 
 def save_to_database(data):
@@ -56,8 +66,6 @@ def save_to_database(data):
     for dict in data:
         words = dict["words"]
         documentName = dict["documentName"]
-
-        # print(documentName)
 
         processed_words = set()
 
