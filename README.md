@@ -79,7 +79,6 @@ Uporabi [pip](https://pip.pypa.io/en/stable/) za namestitev.
 ```bash
 pip install beautifulsoup4
 pip install nltk
-pip install 
 ```
 
 Ob zagonu knjižnica nltk morda potrebuje dodatne pakete, katere pridobite s sledenjem izpisanih navodil v terminalu.
