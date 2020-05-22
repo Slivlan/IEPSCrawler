@@ -39,6 +39,9 @@ def search_words(words):
 
 
 w = sys.argv[1:]
+w = str(w)
+w.lower()
+w = text_to_tokens_without_stopwords(w)
 
 print('Searching for a query: "{}"'.format(" ".join(w)))
 results = search_words(w)

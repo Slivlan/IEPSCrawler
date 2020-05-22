@@ -90,14 +90,19 @@ def save_to_database(data):
 
 conn = sqlite3.connect('inverted-index.db', isolation_level=None).cursor()
 
-# print("Clearing database...")
-# db_init()
-#
-# print("Getting words and filenames...")
-# data = get_words_from_all_files()
-# save_to_database(data)
+'''
+print("Clearing database...")
+db_init()
+
+print("Getting words and filenames...")
+data = get_words_from_all_files()
+save_to_database(data)
+'''
 
 w = sys.argv[1:]
+w = str(w)
+w.lower()
+w = text_to_tokens_without_stopwords(w)
 
 print('Searching for a query: "{}"'.format(" ".join(w)))
 results = search_words(w)
